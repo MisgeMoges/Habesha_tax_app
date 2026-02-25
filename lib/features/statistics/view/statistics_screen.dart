@@ -1,6 +1,13 @@
+import 'dart:convert';
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:habesha_tax_app/core/config/frappe_config.dart';
+import 'package:habesha_tax_app/core/services/frappe_client.dart';
+import 'package:habesha_tax_app/data/model/transaction.dart';
 import '../../general/notifications/notifications_screen.dart';
+import '../../../shared/widgets/client_header.dart';
 
 class StatisticsScreen extends StatefulWidget {
   const StatisticsScreen({super.key});
@@ -11,9 +18,87 @@ class StatisticsScreen extends StatefulWidget {
 
 class _StatisticsScreenState extends State<StatisticsScreen> {
   String selectedTab = 'Expenses'; // Filter toggle
+  final FrappeClient _client = FrappeClient();
+  bool _loading = false;
+  String? _error;
+  List<Transaction> _transactions = [];
+  final NumberFormat _currency = NumberFormat.currency(symbol: r'$');
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTransactions();
+  }
+
+  Future<void> _loadTransactions() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final response = await _client.get(
+        '/api/resource/${FrappeConfig.transactionDoctype}',
+        queryParameters: {
+          'fields': jsonEncode([
+            'name',
+            FrappeConfig.transactionPostingDateField,
+            FrappeConfig.transactionAmountField,
+            FrappeConfig.transactionTypeField,
+            FrappeConfig.transactionCategoryField,
+            'category_name',
+            FrappeConfig.transactionNoteField,
+          ]),
+          'order_by': 'creation desc',
+          'limit_page_length': '200',
+        },
+      );
+
+      final data = response['data'];
+      if (data is List) {
+        final items = data.map<Transaction>((item) {
+          final map = item as Map<String, dynamic>;
+          final amountRaw = map[FrappeConfig.transactionAmountField];
+          final amount = amountRaw is num
+              ? amountRaw.toDouble()
+              : double.tryParse(amountRaw?.toString() ?? '0') ?? 0;
+          final type = map[FrappeConfig.transactionTypeField]?.toString() ?? '';
+          final category =
+              map[FrappeConfig.transactionCategoryField]?.toString() ?? '';
+          final categoryName = map['category_name']?.toString() ?? '';
+          final date =
+              map[FrappeConfig.transactionPostingDateField]?.toString() ?? '';
+          final note = map[FrappeConfig.transactionNoteField]?.toString() ?? '';
+
+          return Transaction.fromJson({
+            'id': map['name']?.toString() ?? '',
+            'postingDate': date,
+            'amount': amount,
+            'type': type,
+            'category': category,
+            'category_name': categoryName,
+            'note': note,
+          });
+        }).toList();
+
+        setState(() => _transactions = items);
+      }
+    } catch (e) {
+      setState(() => _error = 'Failed to load statistics: $e');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final incomeTotal = _transactions
+        .where((tx) => tx.isIncome)
+        .fold<double>(0, (sum, tx) => sum + tx.amount.abs());
+    final expenseTotal = _transactions
+        .where((tx) => !tx.isIncome)
+        .fold<double>(0, (sum, tx) => sum + tx.amount.abs());
+
     return Scaffold(
       backgroundColor: const Color(0xFFFFFFFF),
       body: SafeArea(
@@ -22,15 +107,11 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header stays the same
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Icon(Icons.grid_view_rounded),
-                  const Text(
-                    'Overview',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                  ),
+                  const ClientProfileLeading(),
+                  const Expanded(child: Center(child: ClientAppBarTitle())),
                   IconButton(
                     icon: const Icon(
                       Icons.notifications_none,
@@ -55,7 +136,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                   Expanded(
                     child: _buildAmountCard(
                       title: 'Total Income',
-                      amount: '\$8,500',
+                      amount: _currency.format(incomeTotal),
                       bgColor: const Color(0xFFF4ECFF),
                       iconColor: const Color(0xFF8A56E8),
                     ),
@@ -64,7 +145,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                   Expanded(
                     child: _buildAmountCard(
                       title: 'Total Expenses',
-                      amount: '\$3,800',
+                      amount: _currency.format(expenseTotal),
                       bgColor: const Color(0xFFFFF0ED),
                       iconColor: const Color.fromARGB(234, 239, 135, 127),
                     ),
@@ -126,7 +207,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                       const SizedBox(height: 16),
 
                       // Chart
-                      TransactionBarChart(transactions: _getAllTransactions()),
+                      TransactionBarChart(transactions: _transactions),
                       const SizedBox(height: 24),
 
                       // Filter Tabs
@@ -141,12 +222,31 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                       const SizedBox(height: 16),
 
                       // Filtered Transactions List
-                      Column(
-                        children: _getAllTransactions()
-                            .where((tx) => tx['type'] == selectedTab)
-                            .map((tx) => _buildTransactionRow(tx))
-                            .toList(),
-                      ),
+                      if (_loading)
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            child: CircularProgressIndicator(),
+                          ),
+                        )
+                      else if (_error != null)
+                        Text(_error!, style: const TextStyle(color: Colors.red))
+                      else if (_transactions.isEmpty)
+                        Text(
+                          'No transactions yet',
+                          style: TextStyle(color: Colors.grey.shade600),
+                        )
+                      else
+                        Column(
+                          children: _transactions
+                              .where(
+                                (tx) => selectedTab == 'Income'
+                                    ? tx.isIncome
+                                    : !tx.isIncome,
+                              )
+                              .map(_buildTransactionRow)
+                              .toList(),
+                        ),
                     ],
                   ),
                 ),
@@ -182,9 +282,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: iconColor.withOpacity(
-                    1,
-                  ), // light background based on icon color
+                  color: iconColor.withOpacity(1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
@@ -196,12 +294,20 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              Text(
-                amount,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: iconColor,
+              Expanded(
+                child: FittedBox(
+                  alignment: Alignment.centerLeft,
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    amount,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: iconColor,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -243,14 +349,20 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     );
   }
 
-  Widget _buildTransactionRow(Map<String, dynamic> tx) {
+  Widget _buildTransactionRow(Transaction tx) {
+    final amountText =
+        '${tx.isIncome ? '+' : '-'}${_currency.format(tx.amount.abs())}';
+    final dateText = tx.postingDateValue != null
+        ? DateFormat('MMM dd, yyyy').format(tx.postingDateValue!)
+        : tx.postingDate;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
           CircleAvatar(
             backgroundColor: Colors.white,
-            child: Icon(tx['icon'], color: Colors.grey[700]),
+            child: Icon(_iconForType(tx.type), color: Colors.grey[700]),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -258,19 +370,19 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  tx['label'],
+                  tx.title,
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
-                Text(tx['date'], style: const TextStyle(fontSize: 12)),
+                Text(dateText, style: const TextStyle(fontSize: 12)),
               ],
             ),
           ),
           Text(
-            tx['amount'],
+            amountText,
             style: TextStyle(
-              color: tx['amount'].contains('-')
-                  ? Color.fromARGB(234, 239, 135, 127)
-                  : Colors.green,
+              color: tx.isIncome
+                  ? Colors.green
+                  : const Color.fromARGB(234, 239, 135, 127),
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -279,169 +391,55 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     );
   }
 
-  List<Map<String, dynamic>> _getFilteredTransactions() {
-    final allTransactions = [
-      {
-        "icon": Icons.shopping_bag,
-        "label": "Shopping",
-        "date": "30 Apr 2022",
-        "amount": "-\$100,550",
-        "type": "Expenses",
-      },
-      {
-        "icon": Icons.laptop,
-        "label": "Laptop",
-        "date": "28 Apr 2022",
-        "amount": "-\$100,200",
-        "type": "Expenses",
-      },
-      {
-        "icon": Icons.attach_money,
-        "label": "Salary",
-        "date": "25 Apr 2022",
-        "amount": "\$3,000",
-        "type": "Income",
-      },
-      {
-        "icon": Icons.trending_up,
-        "label": "Freelance",
-        "date": "22 Apr 2022",
-        "amount": "\$1,500",
-        "type": "Income",
-      },
-    ];
-
-    return allTransactions.where((tx) => tx['type'] == selectedTab).toList();
-  }
-
-  List<Map<String, dynamic>> _getAllTransactions() {
-    return [
-      {
-        "icon": Icons.shopping_bag,
-        "label": "Shopping",
-        "date": "29 Apr 2022",
-        "amount": "\$13,550",
-        "type": "Income",
-      },
-      {
-        "icon": Icons.laptop,
-        "label": "Laptop",
-        "date": "28 Apr 2022",
-        "amount": "-\$13,200",
-        "type": "Expenses",
-      },
-      {
-        "icon": Icons.attach_money,
-        "label": "Salary",
-        "date": "2 Apr 2022",
-        "amount": "\$100,000",
-        "type": "Income",
-      },
-      {
-        "icon": Icons.laptop,
-        "label": "Laptop",
-        "date": "12 Apr 2022",
-        "amount": "-\$80,200",
-        "type": "Expenses",
-      },
-      {
-        "icon": Icons.laptop,
-        "label": "Laptop",
-        "date": "12 Apr 2022",
-        "amount": "-\$90,200",
-        "type": "Income",
-      },
-
-      {
-        "icon": Icons.attach_money,
-        "label": "Salary",
-        "date": "2 Apr 2022",
-        "amount": "-\$60,000",
-        "type": "Expenses",
-      },
-      {
-        "icon": Icons.trending_up,
-        "label": "Freelance",
-        "date": "20 Apr 2022",
-        "amount": "\$110,500",
-        "type": "Income",
-      },
-      {
-        "icon": Icons.trending_up,
-        "label": "Freelance",
-        "date": "20 Apr 2022",
-        "amount": "-\$100,500",
-        "type": "Expenses",
-      },
-    ];
+  IconData _iconForType(String type) {
+    switch (type.toLowerCase()) {
+      case 'income':
+        return Icons.arrow_downward;
+      case 'expense':
+        return Icons.arrow_upward;
+      case 'payment':
+        return Icons.account_balance_wallet;
+      case 'receipt':
+        return Icons.receipt_long;
+      default:
+        return Icons.swap_horiz;
+    }
   }
 }
 
 class TransactionBarChart extends StatelessWidget {
-  final List<Map<String, dynamic>> transactions;
+  final List<Transaction> transactions;
+  final NumberFormat _compactCurrency = NumberFormat.compactCurrency(
+    symbol: r'$',
+  );
 
-  const TransactionBarChart({super.key, required this.transactions});
+  TransactionBarChart({super.key, required this.transactions});
 
   @override
   Widget build(BuildContext context) {
-    double parseAmount(String amountStr) {
-      final cleaned = amountStr.replaceAll(RegExp(r'[^\d.-]'), '');
-      return cleaned.startsWith('-')
-          ? double.parse(cleaned.substring(1))
-          : double.parse(cleaned);
-    }
-
-    String toISO(String dateStr) {
-      final parts = dateStr.split(' ');
-      final month = {
-        'Jan': '01',
-        'Feb': '02',
-        'Mar': '03',
-        'Apr': '04',
-        'May': '05',
-        'Jun': '06',
-        'Jul': '07',
-        'Aug': '08',
-        'Sep': '09',
-        'Oct': '10',
-        'Nov': '11',
-        'Dec': '12',
-      }[parts[1]]!;
-      return '${parts[2]}-$month-${parts[0].padLeft(2, '0')}';
-    }
-
-    List<double> getWeeklyTotals(String type) {
+    List<double> getWeeklyTotals(bool income) {
       final totals = [0.0, 0.0, 0.0, 0.0];
       for (var tx in transactions) {
-        if (tx['type'] != type) continue;
-        final date = DateTime.parse(toISO(tx['date']));
+        if (tx.isIncome != income) continue;
+        final date = tx.postingDateValue;
+        if (date == null) continue;
         final week = ((date.day - 1) ~/ 7).clamp(0, 3);
-        totals[week] += parseAmount(tx['amount']);
+        totals[week] += tx.amount.abs();
       }
       return totals;
     }
 
-    final income = getWeeklyTotals('Income');
-    final expense = getWeeklyTotals('Expenses');
+    final income = getWeeklyTotals(true);
+    final expense = getWeeklyTotals(false);
     final allValues = [...income, ...expense];
     final maxAmount = allValues.isEmpty
         ? 1.0
         : allValues.reduce((a, b) => a > b ? a : b);
-    final maxY = (maxAmount / 1000)
+    final maxY = maxAmount <= 0 ? 1.0 : maxAmount;
+    final interval = (maxY / 4)
         .ceilToDouble()
         .clamp(1, double.infinity)
         .toDouble();
-
-    double interval;
-    if (maxY <= 5) {
-      interval = 1;
-    } else if (maxY <= 10) {
-      interval = 2;
-    } else if (maxY <= 20) {
-      interval = 5;
-    } else {
-      interval = 10;
-    }
 
     return SizedBox(
       height: 300,
@@ -454,7 +452,7 @@ class TransactionBarChart extends StatelessWidget {
               barsSpace: 6,
               barRods: [
                 BarChartRodData(
-                  toY: income[i] / 1000,
+                  toY: income[i],
                   width: 18,
                   borderRadius: BorderRadius.circular(4),
                   gradient: const LinearGradient(
@@ -467,7 +465,7 @@ class TransactionBarChart extends StatelessWidget {
                   ),
                 ),
                 BarChartRodData(
-                  toY: expense[i] / 1000,
+                  toY: expense[i],
                   width: 18,
                   borderRadius: BorderRadius.circular(4),
                   color: const Color(0xFFEF877F),
@@ -479,13 +477,13 @@ class TransactionBarChart extends StatelessWidget {
             leftTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
-                reservedSize: 40,
+                reservedSize: 56,
                 interval: interval,
                 getTitlesWidget: (value, _) => Padding(
                   padding: const EdgeInsets.only(right: 4),
                   child: Text(
-                    '\$${value.toInt()}k',
-                    style: const TextStyle(fontSize: 12),
+                    _compactCurrency.format(value),
+                    style: const TextStyle(fontSize: 11),
                   ),
                 ),
               ),

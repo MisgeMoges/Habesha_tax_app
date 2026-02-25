@@ -17,20 +17,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<SignInWithAppleRequested>(_onSignInWithAppleRequested);
     on<SignOutRequested>(_onSignOutRequested);
     on<ResetPasswordRequested>(_onResetPasswordRequested);
+    on<UpdatePasswordRequested>(_onUpdatePasswordRequested);
     on<UpdateProfileRequested>(_onUpdateProfileRequested);
 
     // Listen to auth state changes
     _authRepository.authStateChanges.listen((Either<Failure, User?> result) {
-      result.fold(
-        (failure) => emit(AuthError(failure.message ?? 'Authentication error')),
-        (user) {
-          if (user != null) {
-            add(AuthCheckRequested());
-          } else {
-            emit(Unauthenticated());
-          }
-        },
-      );
+      add(AuthCheckRequested());
     });
   }
 
@@ -80,9 +72,16 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       event.password,
       event.firstName,
       event.lastName,
-      event.middleName,
-      event.memberCategory,
-      event.profileImage,
+      event.mobileNumber,
+      event.userCategory,
+      event.businessType,
+      event.businessStatus,
+      event.tinNumber,
+      event.taxCategory,
+      event.addressLine1,
+      event.city,
+      event.state,
+      event.country,
     );
     result.fold(
       (failure) => emit(AuthError(failure.message ?? 'Sign up failed')),
@@ -138,6 +137,23 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     );
   }
 
+  Future<void> _onUpdatePasswordRequested(
+    UpdatePasswordRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(AuthLoading());
+    final result = await _authRepository.updatePassword(
+      email: event.email,
+      newPassword: event.newPassword,
+      oldPassword: event.oldPassword,
+      resetKey: event.resetKey,
+    );
+    result.fold(
+      (failure) => emit(AuthError(failure.message ?? 'Password update failed')),
+      (_) => emit(Unauthenticated()),
+    );
+  }
+
   Future<void> _onUpdateProfileRequested(
     UpdateProfileRequested event,
     Emitter<AuthState> emit,
@@ -146,28 +162,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     await _authRepository.updateProfile(
       firstName: event.firstName,
       lastName: event.lastName,
-      middleName: event.middleName,
-      memberCategory: event.memberCategory,
-      maritalStatus: event.maritalStatus,
-      gender: event.gender,
-      membershipType: event.membershipType,
-      christeningName: event.christeningName,
-      spiritualFatherName: event.spiritualFatherName,
-      profilePicture: null, // or pass the correct URL if you have it
-      dateOfBirth: event.dateOfBirth,
-      nationality: event.nationality,
-      address: event.address,
-      postcode: event.postcode,
       mobileNumber: event.mobileNumber,
-      emergencyContactName: event.emergencyContactName,
-      emergencyContactRelation: event.emergencyContactRelation,
-      emergencyContactPhone: event.emergencyContactPhone,
-      membershipCommitmentConfirmed: event.membershipCommitmentConfirmed,
-      consentContactChurch: event.consentContactChurch,
-      consentDataUse: event.consentDataUse,
-      membershipApplicationSignature: event.membershipApplicationSignature,
-      membershipApplicationDate: event.membershipApplicationDate,
-      applicationReceivedDate: event.applicationReceivedDate,
     );
     final result = await _authRepository.authStateChanges.first;
     result.fold(

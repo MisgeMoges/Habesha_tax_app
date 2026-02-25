@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../auth/views/auth_screen.dart';
-import '../home/home_screen.dart';
 import 'onboarding_content.dart';
-import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import '../../../core/constants/app_color.dart';
-import '../../../main.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -39,18 +36,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   ];
 
   void goToHome() {
-    final user = fb_auth.FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const AppWrapper()),
-      );
-    } else {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const AuthScreen()),
-      );
-    }
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const AuthScreen()),
+    );
   }
 
   @override

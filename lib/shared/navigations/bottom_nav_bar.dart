@@ -1,3 +1,4 @@
+// bottom_nav_bar.dart
 import 'package:flutter/material.dart';
 
 class BottomNavBar extends StatelessWidget {
@@ -21,26 +22,25 @@ class BottomNavBar extends StatelessWidget {
           selectedIcon: Icon(Icons.home),
           label: 'Home',
         ),
-
         NavigationDestination(
-          icon: Icon(Icons.volunteer_activism_outlined),
-          selectedIcon: Icon(Icons.volunteer_activism),
-          label: 'Donate',
+          icon: Icon(Icons.bar_chart_outlined),
+          selectedIcon: Icon(Icons.bar_chart),
+          label: 'Stats',
         ),
         NavigationDestination(
-          icon: Icon(Icons.calendar_month_outlined),
-          selectedIcon: Icon(Icons.calendar_month),
-          label: 'Calendar',
+          icon: Icon(Icons.add_circle_outline),
+          selectedIcon: Icon(Icons.add_circle),
+          label: 'Add',
         ),
         NavigationDestination(
-          icon: Icon(Icons.church_outlined),
-          selectedIcon: Icon(Icons.church),
-          label: 'About',
+          icon: Icon(Icons.chat_bubble_outlined),
+          selectedIcon: Icon(Icons.chat_bubble),
+          label: 'Chat',
         ),
         NavigationDestination(
-          icon: Icon(Icons.contact_support_outlined),
-          selectedIcon: Icon(Icons.contact_support),
-          label: 'Contact',
+          icon: Icon(Icons.person_outlined),
+          selectedIcon: Icon(Icons.person),
+          label: 'Profile',
         ),
       ],
     );

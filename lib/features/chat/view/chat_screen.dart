@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'dart:convert';
+import '../../../core/config/frappe_config.dart';
+import '../../../core/services/frappe_client.dart';
 
 class AdminChatScreen extends StatefulWidget {
   const AdminChatScreen({super.key});
@@ -12,58 +15,114 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final FrappeClient _client = FrappeClient();
 
   bool isSearching = false;
   String selectedClientId = '';
   String _searchQuery = '';
+  String _currentUserId = '';
+  bool _loadingClients = false;
+  bool _loadingMessages = false;
+  String? _errorMessage;
 
-  final List<Map<String, dynamic>> clients = [
-    {'id': 'user_1', 'name': 'Alice', 'avatar': '🧑‍💼'},
-    {'id': 'user_2', 'name': 'Bob', 'avatar': '👨‍🔧'},
-    {'id': 'user_3', 'name': 'Charlie', 'avatar': '👩‍🌾'},
-  ];
+  List<Map<String, dynamic>> clients = [];
+  final Map<String, List<Map<String, dynamic>>> chatHistories = {};
 
-  final Map<String, List<Map<String, dynamic>>> chatHistories = {
-    'user_1': [
-      {
-        'text': 'Hi Alice! How can I help you with your taxes today?',
-        'isSentByUser': false,
-        'timestamp': DateTime.now().subtract(const Duration(minutes: 8)),
-      },
-      {
-        'text': 'Yes, please help me with documents.',
-        'isSentByUser': true,
-        'timestamp': DateTime.now().subtract(const Duration(minutes: 7)),
-      },
-    ],
-    'user_2': [
-      {
-        'text': 'Hello Bob, I see some receipts uploaded.',
-        'isSentByUser': false,
-        'timestamp': DateTime.now().subtract(const Duration(minutes: 5)),
-      },
-    ],
-    'user_3': [
-      {
-        'text': 'Hi Charlie! Any updates on your expense list?',
-        'isSentByUser': false,
-        'timestamp': DateTime.now().subtract(const Duration(minutes: 3)),
-      },
-    ],
-  };
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrentUserAndClients();
+  }
+
+  Future<void> _loadCurrentUserAndClients() async {
+    setState(() {
+      _loadingClients = true;
+      _errorMessage = null;
+    });
+    try {
+      final currentUserResponse = await _client.get(
+        '/api/method/frappe.auth.get_logged_user',
+      );
+      _currentUserId = currentUserResponse['message']?.toString() ?? '';
+
+      final response = await _client.get(
+        '/api/resource/${FrappeConfig.userDoctype}',
+        queryParameters: {
+          'fields': jsonEncode([
+            FrappeConfig.userIdField,
+            FrappeConfig.userFirstNameField,
+            FrappeConfig.userLastNameField,
+            FrappeConfig.userEmailField,
+          ]),
+          'filters': jsonEncode([
+            ['enabled', '=', 1],
+          ]),
+          'limit_page_length': '200',
+        },
+      );
+
+      final data = response['data'];
+      if (data is List) {
+        clients = data
+            .map(
+              (item) => {
+                'id': item[FrappeConfig.userIdField]?.toString() ?? '',
+                'name':
+                    '${item[FrappeConfig.userFirstNameField] ?? ''} ${item[FrappeConfig.userLastNameField] ?? ''}'
+                        .trim(),
+                'email': item[FrappeConfig.userEmailField]?.toString() ?? '',
+                'avatar': null,
+              },
+            )
+            .where((client) => client['id'] != _currentUserId)
+            .toList();
+      }
+    } catch (e) {
+      _errorMessage = e.toString();
+    } finally {
+      setState(() {
+        _loadingClients = false;
+      });
+    }
+  }
 
   void _handleSend() {
     final text = _messageController.text.trim();
     if (text.isEmpty || selectedClientId.isEmpty) return;
+    _sendMessage(text);
+  }
 
+  Future<void> _sendMessage(String text) async {
+    final message = {
+      'text': text,
+      'isSentByUser': true,
+      'timestamp': DateTime.now(),
+    };
     setState(() {
-      chatHistories[selectedClientId]!.add({
-        'text': text,
-        'isSentByUser': true,
-        'timestamp': DateTime.now(),
-      });
+      chatHistories.putIfAbsent(selectedClientId, () => []);
+      chatHistories[selectedClientId]!.add(message);
     });
+
     _messageController.clear();
+
+    try {
+      await _client.post(
+        '/api/resource/${FrappeConfig.chatMessageDoctype}',
+        body: {
+          'data': {
+            FrappeConfig.chatMessageSenderField: _currentUserId,
+            FrappeConfig.chatMessageReceiverField: selectedClientId,
+            FrappeConfig.chatMessageBodyField: text,
+            FrappeConfig.chatMessageTimestampField: DateTime.now()
+                .toIso8601String(),
+          },
+        },
+      );
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Failed to send message: $e';
+      });
+    }
 
     Future.delayed(const Duration(milliseconds: 100), () {
       if (_scrollController.hasClients) {
@@ -74,6 +133,65 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
         );
       }
     });
+  }
+
+  Future<void> _loadMessages(String clientId) async {
+    setState(() {
+      _loadingMessages = true;
+      _errorMessage = null;
+    });
+    try {
+      final response = await _client.get(
+        '/api/resource/${FrappeConfig.chatMessageDoctype}',
+        queryParameters: {
+          'filters': jsonEncode([
+            [
+              FrappeConfig.chatMessageSenderField,
+              'in',
+              [_currentUserId, clientId],
+            ],
+            [
+              FrappeConfig.chatMessageReceiverField,
+              'in',
+              [_currentUserId, clientId],
+            ],
+          ]),
+          'fields': jsonEncode([
+            'name',
+            FrappeConfig.chatMessageSenderField,
+            FrappeConfig.chatMessageReceiverField,
+            FrappeConfig.chatMessageBodyField,
+            FrappeConfig.chatMessageTimestampField,
+          ]),
+          'order_by': '${FrappeConfig.chatMessageTimestampField} asc',
+          'limit_page_length': '200',
+        },
+      );
+
+      final data = response['data'];
+      if (data is List) {
+        chatHistories[clientId] = data.map((item) {
+          final sender =
+              item[FrappeConfig.chatMessageSenderField]?.toString() ?? '';
+          return {
+            'text': item[FrappeConfig.chatMessageBodyField]?.toString() ?? '',
+            'isSentByUser': sender == _currentUserId,
+            'timestamp':
+                DateTime.tryParse(
+                  item[FrappeConfig.chatMessageTimestampField]?.toString() ??
+                      '',
+                ) ??
+                DateTime.now(),
+          };
+        }).toList();
+      }
+    } catch (e) {
+      _errorMessage = e.toString();
+    } finally {
+      setState(() {
+        _loadingMessages = false;
+      });
+    }
   }
 
   String _formatTimestamp(DateTime time) {
@@ -136,6 +254,14 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
         )
         .toList();
 
+    if (_loadingClients) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_errorMessage != null) {
+      return Center(child: Text(_errorMessage!));
+    }
+
     return ListView.builder(
       itemCount: filtered.length,
       itemBuilder: (context, index) {
@@ -151,9 +277,26 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
         return ListTile(
           leading: CircleAvatar(
             backgroundColor: Colors.deepPurple[100],
-            child: Text(client['avatar']),
+            backgroundImage:
+                (client['avatar'] != null &&
+                    client['avatar'].toString().isNotEmpty)
+                ? NetworkImage(client['avatar'])
+                : null,
+            child:
+                (client['avatar'] == null ||
+                    client['avatar'].toString().isEmpty)
+                ? Text(
+                    client['name'].toString().isNotEmpty
+                        ? client['name'].toString()[0].toUpperCase()
+                        : '?',
+                  )
+                : null,
           ),
-          title: Text(client['name']),
+          title: Text(
+            client['name'].toString().isEmpty
+                ? client['email']
+                : client['name'],
+          ),
           subtitle: Text(
             lastMessage,
             maxLines: 1,
@@ -168,6 +311,7 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
               selectedClientId = client['id'];
               isSearching = false;
             });
+            _loadMessages(client['id']);
           },
         );
       },
@@ -291,13 +435,15 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
           : Column(
               children: [
                 Expanded(
-                  child: ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    itemCount: messages.length,
-                    itemBuilder: (context, index) =>
-                        _buildMessage(messages[index]),
-                  ),
+                  child: _loadingMessages
+                      ? const Center(child: CircularProgressIndicator())
+                      : ListView.builder(
+                          controller: _scrollController,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          itemCount: messages.length,
+                          itemBuilder: (context, index) =>
+                              _buildMessage(messages[index]),
+                        ),
                 ),
                 _buildMessageInput(),
               ],

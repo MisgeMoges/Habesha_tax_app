@@ -1,12 +1,9 @@
 import 'package:dartz/dartz.dart';
-import 'dart:io';
 import '../../../../core/error/failures.dart';
 import '../../../../core/network/network_info.dart';
 import '../../../../data/datasources/auth/auth.dart';
 import '../../../../data/repositories/auth/user_repository.dart';
 import '../../../../data/model/user.dart';
-import '../../../../core/services/cloudinary_service.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
   final AuthRemoteDataSource remoteDataSource;
@@ -24,18 +21,7 @@ class AuthRepositoryImpl implements AuthRepository {
         if (user == null) {
           return const Right(null);
         }
-        try {
-          final doc = await FirebaseFirestore.instance
-              .collection('users')
-              .doc(user.uid)
-              .get();
-          if (!doc.exists) {
-            return const Left(AuthFailure('User profile not found'));
-          }
-          return Right(User.fromFirestore(doc));
-        } catch (e) {
-          return Left(AuthFailure('Failed to fetch user profile: $e'));
-        }
+        return Right(user);
       });
     } else {
       yield const Left(NetworkFailure());
@@ -68,9 +54,16 @@ class AuthRepositoryImpl implements AuthRepository {
     String password,
     String firstName,
     String lastName,
-    String? middleName,
-    String memberCategory,
-    File profileImage,
+    String mobileNumber,
+    String userCategory,
+    String businessType,
+    String businessStatus,
+    String tinNumber,
+    String taxCategory,
+    String addressLine1,
+    String city,
+    String state,
+    String country,
   ) async {
     if (await networkInfo.isConnected) {
       try {
@@ -79,9 +72,16 @@ class AuthRepositoryImpl implements AuthRepository {
           password,
           firstName,
           lastName,
-          middleName,
-          memberCategory,
-          profileImage,
+          mobileNumber,
+          userCategory,
+          businessType,
+          businessStatus,
+          tinNumber,
+          taxCategory,
+          addressLine1,
+          city,
+          state,
+          country,
         );
         return Right(user);
       } catch (e) {
@@ -149,57 +149,39 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<Either<Failure, void>> updatePassword({
+    required String email,
+    required String newPassword,
+    String? oldPassword,
+    String? resetKey,
+  }) async {
+    if (await networkInfo.isConnected) {
+      try {
+        await remoteDataSource.updatePassword(
+          email: email,
+          newPassword: newPassword,
+          oldPassword: oldPassword,
+          resetKey: resetKey,
+        );
+        return const Right(null);
+      } catch (e) {
+        return Left(AuthFailure(e.toString()));
+      }
+    } else {
+      return const Left(NetworkFailure());
+    }
+  }
+
+  @override
   Future<void> updateProfile({
     required String firstName,
     required String lastName,
-    String? middleName,
-    required String memberCategory,
-    required String maritalStatus,
-    required String gender,
-    required String membershipType,
-    String? christeningName,
-    String? spiritualFatherName,
-    String? profilePicture,
-    String? dateOfBirth,
-    String? nationality,
-    String? address,
-    String? postcode,
-    String? mobileNumber,
-    String? emergencyContactName,
-    String? emergencyContactRelation,
-    String? emergencyContactPhone,
-    bool? membershipCommitmentConfirmed,
-    bool? consentContactChurch,
-    bool? consentDataUse,
-    String? membershipApplicationSignature,
-    Timestamp? membershipApplicationDate,
-    Timestamp? applicationReceivedDate,
+    required String mobileNumber,
   }) async {
     await remoteDataSource.updateProfile(
       firstName: firstName,
       lastName: lastName,
-      middleName: middleName,
-      memberCategory: memberCategory,
-      maritalStatus: maritalStatus,
-      gender: gender,
-      membershipType: membershipType,
-      christeningName: christeningName,
-      spiritualFatherName: spiritualFatherName,
-      profilePicture: profilePicture,
-      dateOfBirth: dateOfBirth,
-      nationality: nationality,
-      address: address,
-      postcode: postcode,
       mobileNumber: mobileNumber,
-      emergencyContactName: emergencyContactName,
-      emergencyContactRelation: emergencyContactRelation,
-      emergencyContactPhone: emergencyContactPhone,
-      membershipCommitmentConfirmed: membershipCommitmentConfirmed,
-      consentContactChurch: consentContactChurch,
-      consentDataUse: consentDataUse,
-      membershipApplicationSignature: membershipApplicationSignature,
-      membershipApplicationDate: membershipApplicationDate,
-      applicationReceivedDate: applicationReceivedDate,
     );
   }
 }

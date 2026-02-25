@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 class NotificationDetailScreen extends StatelessWidget {
   final Map<String, dynamic> item;
@@ -25,7 +26,8 @@ class NotificationDetailScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             CircleAvatar(
-              backgroundImage: AssetImage(item['avatar']),
+              backgroundColor: Colors.deepPurple[50],
+              child: const Icon(Icons.notifications, color: Colors.deepPurple),
               radius: 24,
             ),
             const SizedBox(width: 8),
@@ -42,7 +44,9 @@ class NotificationDetailScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      item['time'],
+                      DateFormat(
+                        'hh:mm a',
+                      ).format(item['timestamp'] as DateTime),
                       style: const TextStyle(fontSize: 12, color: Colors.grey),
                     ),
                   ],

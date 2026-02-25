@@ -1,6 +1,4 @@
 import 'package:equatable/equatable.dart';
-import 'dart:io';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 abstract class AuthEvent extends Equatable {
   const AuthEvent();
@@ -26,18 +24,32 @@ class SignUpRequested extends AuthEvent {
   final String password;
   final String firstName;
   final String lastName;
-  final String? middleName;
-  final String memberCategory;
-  final File profileImage;
+  final String mobileNumber;
+  final String userCategory;
+  final String businessType;
+  final String businessStatus;
+  final String tinNumber;
+  final String taxCategory;
+  final String addressLine1;
+  final String city;
+  final String state;
+  final String country;
 
   const SignUpRequested({
     required this.email,
     required this.password,
     required this.firstName,
     required this.lastName,
-    this.middleName,
-    required this.memberCategory,
-    required this.profileImage,
+    required this.mobileNumber,
+    required this.userCategory,
+    required this.businessType,
+    required this.businessStatus,
+    required this.tinNumber,
+    required this.taxCategory,
+    required this.addressLine1,
+    required this.city,
+    required this.state,
+    required this.country,
   });
 
   @override
@@ -46,9 +58,16 @@ class SignUpRequested extends AuthEvent {
     password,
     firstName,
     lastName,
-    middleName,
-    memberCategory,
-    profileImage,
+    mobileNumber,
+    userCategory,
+    businessType,
+    businessStatus,
+    tinNumber,
+    taxCategory,
+    addressLine1,
+    city,
+    state,
+    country,
   ];
 }
 
@@ -67,84 +86,34 @@ class ResetPasswordRequested extends AuthEvent {
   List<Object?> get props => [email];
 }
 
+class UpdatePasswordRequested extends AuthEvent {
+  final String email;
+  final String newPassword;
+  final String? oldPassword;
+  final String? resetKey;
+
+  const UpdatePasswordRequested({
+    required this.email,
+    required this.newPassword,
+    this.oldPassword,
+    this.resetKey,
+  });
+
+  @override
+  List<Object?> get props => [email, newPassword, oldPassword, resetKey];
+}
+
 class UpdateProfileRequested extends AuthEvent {
   final String firstName;
   final String lastName;
-  final String? middleName;
-  final String memberCategory;
-  final String maritalStatus;
-  final String gender;
-  final String membershipType;
-  final String? christeningName;
-  final String? spiritualFatherName;
-  final File? profileImage;
-  final String? dateOfBirth;
-  final String? nationality;
-  final String? address;
-  final String? postcode;
-  final String? mobileNumber;
-  final String? emergencyContactName;
-  final String? emergencyContactRelation;
-  final String? emergencyContactPhone;
-  final bool? membershipCommitmentConfirmed;
-  final bool? consentContactChurch;
-  final bool? consentDataUse;
-  final String? membershipApplicationSignature;
-  final Timestamp? membershipApplicationDate;
-  final Timestamp? applicationReceivedDate;
+  final String mobileNumber;
 
   const UpdateProfileRequested({
     required this.firstName,
     required this.lastName,
-    this.middleName,
-    required this.memberCategory,
-    required this.maritalStatus,
-    required this.gender,
-    required this.membershipType,
-    this.christeningName,
-    this.spiritualFatherName,
-    this.profileImage,
-    this.dateOfBirth,
-    this.nationality,
-    this.address,
-    this.postcode,
-    this.mobileNumber,
-    this.emergencyContactName,
-    this.emergencyContactRelation,
-    this.emergencyContactPhone,
-    this.membershipCommitmentConfirmed,
-    this.consentContactChurch,
-    this.consentDataUse,
-    this.membershipApplicationSignature,
-    this.membershipApplicationDate,
-    this.applicationReceivedDate,
+    required this.mobileNumber,
   });
 
   @override
-  List<Object?> get props => [
-    firstName,
-    lastName,
-    middleName,
-    memberCategory,
-    maritalStatus,
-    gender,
-    membershipType,
-    christeningName,
-    spiritualFatherName,
-    profileImage,
-    dateOfBirth,
-    nationality,
-    address,
-    postcode,
-    mobileNumber,
-    emergencyContactName,
-    emergencyContactRelation,
-    emergencyContactPhone,
-    membershipCommitmentConfirmed,
-    consentContactChurch,
-    consentDataUse,
-    membershipApplicationSignature,
-    membershipApplicationDate,
-    applicationReceivedDate,
-  ];
+  List<Object?> get props => [firstName, lastName, mobileNumber];
 }

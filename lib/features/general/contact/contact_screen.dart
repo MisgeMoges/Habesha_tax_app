@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/utils/ios_scroll_physics.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../core/config/frappe_config.dart';
+import '../../../core/services/frappe_client.dart';
 
 class ContactScreen extends StatefulWidget {
   const ContactScreen({super.key});
@@ -16,6 +17,7 @@ class _ContactScreenState extends State<ContactScreen> {
   final _subjectController = TextEditingController();
   final _messageController = TextEditingController();
   bool _isSending = false;
+  final FrappeClient _client = FrappeClient();
 
   @override
   void dispose() {
@@ -30,14 +32,21 @@ class _ContactScreenState extends State<ContactScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isSending = true);
     try {
-      // Store message in Firestore (optional, remove if not using Firestore)
-      await FirebaseFirestore.instance.collection('contact_messages').add({
-        'name': _nameController.text.trim(),
-        'email': _emailController.text.trim(),
-        'subject': _subjectController.text.trim(),
-        'message': _messageController.text.trim(),
-        'timestamp': FieldValue.serverTimestamp(),
-      });
+      await _client.post(
+        '/api/resource/${FrappeConfig.contactMessageDoctype}',
+        body: {
+          'data': {
+            FrappeConfig.contactMessageNameField: _nameController.text.trim(),
+            FrappeConfig.contactMessageEmailField: _emailController.text.trim(),
+            FrappeConfig.contactMessageSubjectField: _subjectController.text
+                .trim(),
+            FrappeConfig.contactMessageBodyField: _messageController.text
+                .trim(),
+            FrappeConfig.contactMessageTimestampField: DateTime.now()
+                .toIso8601String(),
+          },
+        },
+      );
       setState(() => _isSending = false);
       _formKey.currentState!.reset();
       _nameController.clear();

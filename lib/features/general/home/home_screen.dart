@@ -1,4 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import '../../../shared/widgets/client_header.dart';
+import 'package:intl/intl.dart';
+import 'package:habesha_tax_app/core/config/frappe_config.dart';
+import 'package:habesha_tax_app/core/services/frappe_client.dart';
+import 'package:habesha_tax_app/data/model/transaction.dart';
 import '../notifications/notifications_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -9,6 +16,78 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final FrappeClient _client = FrappeClient();
+  bool _loading = false;
+  String? _error;
+  List<Transaction> _transactions = [];
+  final NumberFormat _currency = NumberFormat.currency(symbol: r'$');
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTransactions();
+  }
+
+  Future<void> _loadTransactions() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final response = await _client.get(
+        '/api/resource/${FrappeConfig.transactionDoctype}',
+        queryParameters: {
+          'fields': jsonEncode([
+            'name',
+            FrappeConfig.transactionPostingDateField,
+            FrappeConfig.transactionAmountField,
+            FrappeConfig.transactionTypeField,
+            FrappeConfig.transactionCategoryField,
+            'category_name',
+            FrappeConfig.transactionNoteField,
+          ]),
+          'order_by': 'creation desc',
+          'limit_page_length': '10',
+        },
+      );
+
+      final data = response['data'];
+      if (data is List) {
+        final items = data.map<Transaction>((item) {
+          final map = item as Map<String, dynamic>;
+          final amountRaw = map[FrappeConfig.transactionAmountField];
+          final amount = amountRaw is num
+              ? amountRaw.toDouble()
+              : double.tryParse(amountRaw?.toString() ?? '0') ?? 0;
+          final type = map[FrappeConfig.transactionTypeField]?.toString() ?? '';
+          final category =
+              map[FrappeConfig.transactionCategoryField]?.toString() ?? '';
+          final categoryName = map['category_name']?.toString() ?? '';
+          final date =
+              map[FrappeConfig.transactionPostingDateField]?.toString() ?? '';
+          final note = map[FrappeConfig.transactionNoteField]?.toString() ?? '';
+
+          return Transaction.fromJson({
+            'id': map['name']?.toString() ?? '',
+            'postingDate': date,
+            'amount': amount,
+            'type': type,
+            'category': category,
+            'category_name': categoryName,
+            'note': note,
+          });
+        }).toList();
+
+        setState(() => _transactions = items);
+      }
+    } catch (e) {
+      setState(() => _error = 'Failed to load transactions: $e');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -16,14 +95,11 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text(
-          'Home',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
-        ),
+        title: const ClientAppBarTitle(),
         centerTitle: true,
         leading: const Padding(
-          padding: EdgeInsets.all(12),
-          child: Icon(Icons.grid_view_rounded, color: Colors.black),
+          padding: EdgeInsets.all(10),
+          child: ClientProfileLeading(),
         ),
         actions: [
           IconButton(
@@ -54,6 +130,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildBalanceCard() {
+    final incomeTotal = _transactions
+        .where((tx) => tx.isIncome)
+        .fold<double>(0, (sum, tx) => sum + tx.amount.abs());
+    final expenseTotal = _transactions
+        .where((tx) => !tx.isIncome)
+        .fold<double>(0, (sum, tx) => sum + tx.amount.abs());
+    final totalBalance = incomeTotal - expenseTotal;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -77,15 +161,15 @@ class _HomeScreenState extends State<HomeScreen> {
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
+                  children: [
+                    const Text(
                       'Total Balance',
                       style: TextStyle(fontSize: 14, color: Colors.white70),
                     ),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     Text(
-                      '\$3,257.00',
-                      style: TextStyle(
+                      _currency.format(totalBalance),
+                      style: const TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
@@ -98,9 +182,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 icon: const Icon(Icons.more_horiz, color: Colors.white),
                 onSelected: (value) {
                   if (value == 'refresh') {
-                    // 🔄 Refresh logic here
-                    debugPrint('Refresh clicked');
-                    // setState or fetch new data if needed
+                    _loadTransactions();
                   }
                 },
                 itemBuilder: (BuildContext context) => [
@@ -119,13 +201,13 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               _buildBalanceItem(
                 'Income',
-                '\$2,350.00',
+                _currency.format(incomeTotal),
                 Icons.arrow_downward,
                 Colors.white,
               ),
               _buildBalanceItem(
                 'Expenses',
-                '\$950.00',
+                _currency.format(expenseTotal),
                 Icons.arrow_upward,
                 Colors.white70,
               ),
@@ -195,18 +277,35 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildTransactionsList() {
-    final transactions = [
-      _Transaction('Money Transfer', '12:35 PM', -450, Icons.money),
-      _Transaction('Paypal', '10:20 AM', 1200, Icons.payment),
-      _Transaction('Uber', '08:40 AM', -150, Icons.directions_car),
-      _Transaction('Bata Store', 'Yesterday', -200, Icons.store),
-      _Transaction('Bank Transfer', 'Yesterday', -600, Icons.account_balance),
-    ];
+    if (_loading) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 16),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
 
-    return Column(children: transactions.map(_buildTransactionItem).toList());
+    if (_error != null) {
+      return Text(_error!, style: const TextStyle(color: Colors.red));
+    }
+
+    if (_transactions.isEmpty) {
+      return Text(
+        'No transactions yet',
+        style: TextStyle(color: Colors.grey.shade600),
+      );
+    }
+
+    final items = _transactions.take(5).toList();
+    return Column(children: items.map(_buildTransactionItem).toList());
   }
 
-  Widget _buildTransactionItem(_Transaction tx) {
+  Widget _buildTransactionItem(Transaction tx) {
+    final isIncome = tx.isIncome;
+    final icon = _iconForType(tx.type);
+    final timeLabel = _formatPostingDate(tx.postingDateValue, tx.postingDate);
+
     return Card(
       color: Colors.white,
       margin: const EdgeInsets.only(bottom: 12),
@@ -216,33 +315,44 @@ class _HomeScreenState extends State<HomeScreen> {
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: CircleAvatar(
           child: Icon(
-            tx.icon,
-            color: tx.amount > 0 ? Colors.lightGreen : Colors.deepPurpleAccent,
+            icon,
+            color: isIncome ? Colors.lightGreen : Colors.deepPurpleAccent,
           ),
         ),
         title: Text(
           tx.title,
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
-        subtitle: Text(tx.time),
+        subtitle: Text(timeLabel),
         trailing: Text(
-          '${tx.amount > 0 ? '+' : '-'}\$${tx.amount.abs().toStringAsFixed(2)}',
+          '${isIncome ? '+' : '-'}\$${tx.amount.abs().toStringAsFixed(2)}',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
-            color: tx.amount > 0 ? Colors.green : Colors.red,
+            color: isIncome ? Colors.green : Colors.red,
           ),
         ),
       ),
     );
   }
-}
 
-class _Transaction {
-  final String title;
-  final String time;
-  final double amount;
-  final IconData icon;
+  String _formatPostingDate(DateTime? date, String fallback) {
+    if (date == null) return fallback;
+    return DateFormat('MMM dd, yyyy').format(date);
+  }
 
-  _Transaction(this.title, this.time, this.amount, this.icon);
+  IconData _iconForType(String type) {
+    switch (type.toLowerCase()) {
+      case 'income':
+        return Icons.arrow_downward;
+      case 'expense':
+        return Icons.arrow_upward;
+      case 'payment':
+        return Icons.account_balance_wallet;
+      case 'receipt':
+        return Icons.receipt_long;
+      default:
+        return Icons.swap_horiz;
+    }
+  }
 }

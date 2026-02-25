@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 class TaxDocument {
   final String id;
   final String userId;
@@ -29,7 +27,7 @@ class TaxDocument {
       'fileUrl': fileUrl,
       'amount': amount,
       'category': category,
-      'uploadDate': Timestamp.fromDate(uploadDate),
+      'uploadDate': uploadDate.toIso8601String(),
       'description': description,
     };
   }
@@ -42,7 +40,9 @@ class TaxDocument {
       fileUrl: map['fileUrl'] ?? '',
       amount: (map['amount'] ?? 0.0).toDouble(),
       category: map['category'] ?? '',
-      uploadDate: (map['uploadDate'] as Timestamp).toDate(),
+      uploadDate:
+          DateTime.tryParse(map['uploadDate']?.toString() ?? '') ??
+          DateTime.now(),
       description: map['description'] ?? '',
     );
   }
