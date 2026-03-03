@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/utils/ios_scroll_physics.dart';
 import '../../../core/config/frappe_config.dart';
 import '../../../core/services/frappe_client.dart';
+import '../../../core/utils/user_friendly_error.dart';
 
 class ContactScreen extends StatefulWidget {
   const ContactScreen({super.key});
@@ -63,7 +64,13 @@ class _ContactScreenState extends State<ContactScreen> {
       setState(() => _isSending = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to send message: $e'),
+          content: Text(
+            UserFriendlyError.message(
+              e,
+              fallback:
+                  'Unable to send your message right now. Please try again.',
+            ),
+          ),
           backgroundColor: Colors.red,
         ),
       );

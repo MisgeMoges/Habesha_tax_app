@@ -4,7 +4,7 @@ import 'tax_state.dart';
 import '../../../data/repositories/tax/tax_repository.dart';
 import '../../auth/bloc/auth_bloc.dart';
 import '../../auth/bloc/auth_state.dart';
-import 'package:flutter/material.dart';
+import '../../../core/utils/user_friendly_error.dart';
 
 class TaxBloc extends Bloc<TaxEvent, TaxState> {
   final TaxRepository taxRepository;
@@ -44,8 +44,14 @@ class TaxBloc extends Bloc<TaxEvent, TaxState> {
       description: event.description,
     );
     result.fold(
-      (failure) =>
-          emit(TaxError(failure.message ?? 'Failed to upload document')),
+      (failure) => emit(
+        TaxError(
+          UserFriendlyError.message(
+            failure.message,
+            fallback: 'Unable to upload document right now. Please try again.',
+          ),
+        ),
+      ),
       (_) => add(const FetchTaxDocumentsRequested()),
     );
   }
@@ -62,8 +68,14 @@ class TaxBloc extends Bloc<TaxEvent, TaxState> {
     emit(TaxLoading());
     final result = await taxRepository.getUserDocuments(userId);
     result.fold(
-      (failure) =>
-          emit(TaxError(failure.message ?? 'Failed to fetch documents')),
+      (failure) => emit(
+        TaxError(
+          UserFriendlyError.message(
+            failure.message,
+            fallback: 'Unable to load tax documents right now.',
+          ),
+        ),
+      ),
       (documents) => emit(TaxDocumentsLoaded(documents)),
     );
   }
@@ -83,7 +95,14 @@ class TaxBloc extends Bloc<TaxEvent, TaxState> {
       event.month,
     );
     result.fold(
-      (failure) => emit(TaxError(failure.message ?? 'Failed to fetch summary')),
+      (failure) => emit(
+        TaxError(
+          UserFriendlyError.message(
+            failure.message,
+            fallback: 'Unable to load tax summary right now.',
+          ),
+        ),
+      ),
       (summary) => emit(TaxSummaryLoaded(summary)),
     );
   }

@@ -2,15 +2,26 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:habesha_tax_app/core/config/frappe_config.dart';
 import 'package:habesha_tax_app/core/services/frappe_client.dart';
+import 'package:habesha_tax_app/core/utils/user_friendly_error.dart';
 import 'package:habesha_tax_app/data/model/transaction_category.dart';
+import 'package:habesha_tax_app/data/model/transaction.dart';
+import 'package:habesha_tax_app/features/auth/bloc/auth_bloc.dart';
+import 'package:habesha_tax_app/features/auth/bloc/auth_state.dart';
 
 class AddTransactionFormScreen extends StatefulWidget {
   final String? initialTransactionType;
+  final Transaction? initialTransaction;
 
-  const AddTransactionFormScreen({super.key, this.initialTransactionType});
+  const AddTransactionFormScreen({
+    super.key,
+    this.initialTransactionType,
+    this.initialTransaction,
+  });
 
   @override
   State<AddTransactionFormScreen> createState() =>
@@ -24,12 +35,14 @@ class _AddTransactionFormScreenState extends State<AddTransactionFormScreen> {
   final _dateController = TextEditingController();
 
   final FrappeClient _client = FrappeClient();
+  final ImagePicker _imagePicker = ImagePicker();
 
   String _transactionType = 'Income';
   DateTime _selectedDate = DateTime.now();
 
   File? _mainFile;
   final List<File> _attachments = [];
+  bool _isSingleAttachmentMode = false;
   bool _isSubmitting = false;
   bool _loadingLookups = false;
   bool _loadingClient = false;
@@ -38,18 +51,23 @@ class _AddTransactionFormScreenState extends State<AddTransactionFormScreen> {
   List<TransactionCategory> _categories = [];
   TransactionCategory? _selectedCategory;
   Map<String, dynamic>? _clientRecord;
+  late final String? _initialCategoryId;
 
-  static const List<String> _transactionTypes = [
-    'Income',
-    'Expense',
-    'Payment',
-    'Receipt',
-  ];
+  static const List<String> _transactionTypes = ['Income', 'Expense'];
 
   @override
   void initState() {
     super.initState();
     _transactionType = widget.initialTransactionType ?? _transactionType;
+    _initialCategoryId = widget.initialTransaction?.category;
+    if (widget.initialTransaction != null) {
+      final tx = widget.initialTransaction!;
+      _transactionType = tx.type.isNotEmpty ? tx.type : _transactionType;
+      _amountController.text = tx.amount.toString();
+      _noteController.text = tx.note;
+      final parsedDate = tx.postingDateValue ?? _selectedDate;
+      _selectedDate = parsedDate;
+    }
     _dateController.text = DateFormat('yyyy-MM-dd').format(_selectedDate);
     _loadLookups();
     _loadClientData();
@@ -62,32 +80,30 @@ class _AddTransactionFormScreenState extends State<AddTransactionFormScreen> {
     });
 
     try {
-      // final loggedUserResponse = await _client.get(
-      //   '/api/method/fhabesha_tax.habesha_tax.doctype.client.client.get_logged_in_user',
-      // );
-      // final userEmail = loggedUserResponse['message']?.toString() ?? '';
-      // if (userEmail.isEmpty) {
-      //   throw Exception('User not authenticated');
-      // }
-
+      final authState = context.read<AuthBloc>().state;
+      final user = authState is Authenticated ? authState.user : null;
+      final userEmail = user?.email ?? '';
+      if (userEmail.isEmpty) {
+        throw Exception('User not authenticated');
+      }
       final response = await _client.get(
-        '/api/method/habesha_tax.habesha_tax.doctype.client.client.get_clients',
+        '/api/resource/${FrappeConfig.clientDoctype}',
+        queryParameters: {
+          'filters': '[["user_id","=","$userEmail"]]',
+          'limit_page_length': '1',
+        },
       );
-      print('Loaded client record: $response');
-      if (response['success'] == true) {
-        final data = response['data'];
-        if (data is List && data.isNotEmpty) {
-          _clientRecord = Map<String, dynamic>.from(data.first as Map);
-        } else {
-          throw Exception('Client record not found');
-        }
+      final data = response['data'] ?? response['message'];
+      if (data is List && data.isNotEmpty) {
+        _clientRecord = Map<String, dynamic>.from(data.first as Map);
       } else {
-        throw Exception(
-          response['message']?.toString() ?? 'Failed to fetch clients',
-        );
+        throw Exception('Client record not found');
       }
     } catch (e) {
-      _clientError = 'Failed to load client data: ${e.toString()}';
+      _clientError = UserFriendlyError.message(
+        e,
+        fallback: 'Unable to load your account details right now.',
+      );
     } finally {
       if (mounted) {
         setState(() => _loadingClient = false);
@@ -126,7 +142,10 @@ class _AddTransactionFormScreenState extends State<AddTransactionFormScreen> {
 
           setState(() {
             if (_categories.isNotEmpty) {
-              _selectedCategory = _categories.first;
+              _selectedCategory = _categories.firstWhere(
+                (category) => category.id == _initialCategoryId,
+                orElse: () => _categories.first,
+              );
             }
           });
         }
@@ -137,7 +156,11 @@ class _AddTransactionFormScreenState extends State<AddTransactionFormScreen> {
       }
     } catch (e) {
       setState(() {
-        _lookupError = 'Failed to load options: ${e.toString()}';
+        _lookupError = UserFriendlyError.message(
+          e,
+          fallback:
+              'Some form options could not be loaded. You can still continue.',
+        );
         // Set default categories for fallback
         _categories = [
           TransactionCategory(id: 'sales', name: 'Sales'),
@@ -183,8 +206,43 @@ class _AddTransactionFormScreenState extends State<AddTransactionFormScreen> {
 
     if (result != null && result.files.single.path != null) {
       setState(() {
-        _attachments.add(File(result.files.single.path!));
+        if (_isSingleAttachmentMode) {
+          _mainFile = File(result.files.single.path!);
+        } else {
+          _attachments.add(File(result.files.single.path!));
+        }
       });
+    }
+  }
+
+  Future<void> _takeAttachmentPhoto() async {
+    try {
+      final photo = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
+      );
+
+      if (photo == null) return;
+
+      setState(() {
+        if (_isSingleAttachmentMode) {
+          _mainFile = File(photo.path);
+        } else {
+          _attachments.add(File(photo.path));
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            UserFriendlyError.message(
+              e,
+              fallback: 'Unable to open camera right now.',
+            ),
+          ),
+        ),
+      );
     }
   }
 
@@ -194,6 +252,15 @@ class _AddTransactionFormScreenState extends State<AddTransactionFormScreen> {
         response['message']?['file_url']?.toString() ??
         response['file_url']?.toString();
     return fileUrl;
+  }
+
+  void _setAttachmentMode(bool singleMode) {
+    setState(() {
+      _isSingleAttachmentMode = singleMode;
+      if (singleMode) {
+        _attachments.clear();
+      }
+    });
   }
 
   Future<void> _submit() async {
@@ -234,7 +301,7 @@ class _AddTransactionFormScreenState extends State<AddTransactionFormScreen> {
 
       final payload = <String, dynamic>{
         FrappeConfig.transactionClientField:
-            _clientRecord?['id']?.toString() ?? '',
+            _clientRecord?['name']?.toString() ?? '',
         FrappeConfig.transactionPostingDateField: DateFormat(
           'yyyy-MM-dd',
         ).format(_selectedDate),
@@ -255,18 +322,34 @@ class _AddTransactionFormScreenState extends State<AddTransactionFormScreen> {
             .toList();
       }
 
-      await _client.post(
-        '/api/resource/${FrappeConfig.transactionDoctype}',
-        body: {'data': payload},
-      );
+      if (widget.initialTransaction != null &&
+          widget.initialTransaction!.id.isNotEmpty) {
+        await _client.put(
+          '/api/resource/${FrappeConfig.transactionDoctype}/${widget.initialTransaction!.id}',
+          body: payload,
+        );
+      } else {
+        await _client.post(
+          '/api/resource/${FrappeConfig.transactionDoctype}',
+          body: payload,
+        );
+      }
 
       if (!mounted) return;
-      Navigator.pop(context);
+      Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to add transaction: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            UserFriendlyError.message(
+              e,
+              fallback:
+                  'Unable to save transaction right now. Please try again.',
+            ),
+          ),
+        ),
+      );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -282,8 +365,12 @@ class _AddTransactionFormScreenState extends State<AddTransactionFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isEditing = widget.initialTransaction != null;
     return Scaffold(
-      appBar: AppBar(title: const Text('Add Transaction'), centerTitle: true),
+      appBar: AppBar(
+        title: Text(isEditing ? 'Edit Transaction' : 'Add Transaction'),
+        centerTitle: true,
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Form(
@@ -338,8 +425,6 @@ class _AddTransactionFormScreenState extends State<AddTransactionFormScreen> {
                 },
               ),
               const SizedBox(height: 16),
-
-              //Category Dropdown
               DropdownButtonFormField<TransactionCategory>(
                 value: _selectedCategory,
                 decoration: const InputDecoration(
@@ -349,7 +434,7 @@ class _AddTransactionFormScreenState extends State<AddTransactionFormScreen> {
                 items: _categories.map((category) {
                   return DropdownMenuItem<TransactionCategory>(
                     value: category,
-                    child: Text(category.name), // Display category_name
+                    child: Text(category.name),
                   );
                 }).toList(),
                 onChanged: (value) {
@@ -425,98 +510,311 @@ class _AddTransactionFormScreenState extends State<AddTransactionFormScreen> {
                           ),
                         ),
                       ),
+                      if (_mainFile != null)
+                        IconButton(
+                          tooltip: 'Remove main attachment',
+                          icon: const Icon(Icons.close, size: 18),
+                          onPressed: () {
+                            setState(() {
+                              _mainFile = null;
+                            });
+                          },
+                        ),
                     ],
                   ),
                 ),
               ),
               const SizedBox(height: 16),
 
-              // Multiple Attachments
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'Multiple Attachments',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+              // Attachment Mode Selector
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.deepPurple.withOpacity(0.2)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Attachment Mode',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: Colors.deepPurple,
+                      ),
                     ),
-                  ),
-                  TextButton.icon(
-                    onPressed: _pickAttachment,
-                    icon: const Icon(Icons.add),
-                    label: const Text('Add File'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              if (_attachments.isEmpty)
-                Text(
-                  'No attachments added',
-                  style: TextStyle(color: Colors.grey.shade600),
-                )
-              else
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: DataTable(
-                    columns: const [
-                      DataColumn(label: Text('No.')),
-                      DataColumn(label: Text('File')),
-                      DataColumn(label: Text('')),
-                    ],
-                    rows: List.generate(_attachments.length, (index) {
-                      final file = _attachments[index];
-                      return DataRow(
-                        cells: [
-                          DataCell(Text('${index + 1}')),
-                          DataCell(
-                            ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 200),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => _setAttachmentMode(true),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              curve: Curves.easeOut,
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              decoration: BoxDecoration(
+                                color: Colors.transparent,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: _isSingleAttachmentMode
+                                      ? const Color(0xFF8A56E8)
+                                      : Colors.deepPurple.withOpacity(0.25),
+                                  width: _isSingleAttachmentMode ? 1.8 : 1,
+                                ),
+                              ),
                               child: Text(
-                                file.path.split('/').last,
-                                overflow: TextOverflow.ellipsis,
+                                'Single',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.deepPurple,
+                                  fontWeight: _isSingleAttachmentMode
+                                      ? FontWeight.w700
+                                      : FontWeight.w600,
+                                ),
                               ),
                             ),
                           ),
-                          DataCell(
-                            IconButton(
-                              icon: const Icon(Icons.close, size: 18),
-                              onPressed: () {
-                                setState(() {
-                                  _attachments.removeAt(index);
-                                });
-                              },
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => _setAttachmentMode(false),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              curve: Curves.easeOut,
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              decoration: BoxDecoration(
+                                color: Colors.transparent,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: !_isSingleAttachmentMode
+                                      ? const Color(0xFF8A56E8)
+                                      : Colors.deepPurple.withOpacity(0.25),
+                                  width: !_isSingleAttachmentMode ? 1.8 : 1,
+                                ),
+                              ),
+                              child: Text(
+                                'Multiple',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.deepPurple,
+                                  fontWeight: !_isSingleAttachmentMode
+                                      ? FontWeight.w700
+                                      : FontWeight.w600,
+                                ),
+                              ),
                             ),
                           ),
-                        ],
-                      );
-                    }),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // Camera Capture (between main and multiple)
+              Center(
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: _takeAttachmentPhoto,
+                  child: Ink(
+                    width: 230,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 14,
+                    ),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF8A56E8), Color(0xFF6D3BD2)],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x338A56E8),
+                          blurRadius: 14,
+                          offset: Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.camera_alt_rounded, color: Colors.white),
+                        SizedBox(width: 10),
+                        Text(
+                          'Take Picture',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
+              ),
+              const SizedBox(height: 14),
+
+              // Conditional section between main and multiple
+              if (_isSingleAttachmentMode)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.deepPurple.withOpacity(0.04),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: Colors.deepPurple.withOpacity(0.2),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline, color: Colors.deepPurple),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _mainFile == null
+                              ? 'Single mode: choose a main attachment from camera or select file.'
+                              : 'Single mode selected. Main attachment is ready.',
+                          style: const TextStyle(color: Colors.deepPurple),
+                        ),
+                      ),
+                      OutlinedButton(
+                        onPressed: _pickAttachment,
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Color(0xFF8A56E8)),
+                          foregroundColor: const Color(0xFF8A56E8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: const Text(
+                          'Select File',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                const SizedBox.shrink(),
+
+              const SizedBox(height: 8),
+
+              // Attachments
+              if (!_isSingleAttachmentMode) ...[
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Multiple Attachments',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: _pickAttachment,
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFF8A56E8)),
+                        foregroundColor: const Color(0xFF8A56E8),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      icon: const Icon(Icons.attach_file),
+                      label: const Text(
+                        'Add File',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ],
+                ),
+
+                if (_attachments.isEmpty)
+                  Text(
+                    'No attachments added',
+                    style: TextStyle(color: Colors.grey.shade600),
+                  )
+                else
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: DataTable(
+                      columnSpacing: 16,
+                      horizontalMargin: 20,
+                      columns: const [
+                        DataColumn(label: Text('No.')),
+                        DataColumn(label: Text('File')),
+                        DataColumn(label: Text('')),
+                      ],
+                      rows: List.generate(_attachments.length, (index) {
+                        final file = _attachments[index];
+                        return DataRow(
+                          cells: [
+                            DataCell(Text('${index + 1}')),
+                            DataCell(
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  maxWidth: 260,
+                                ),
+                                child: Text(
+                                  file.path.split('/').last,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                            DataCell(
+                              IconButton(
+                                icon: const Icon(Icons.close, size: 18),
+                                onPressed: () {
+                                  setState(() {
+                                    _attachments.removeAt(index);
+                                  });
+                                },
+                              ),
+                            ),
+                          ],
+                        );
+                      }),
+                    ),
+                  ),
+              ],
 
               const SizedBox(height: 24),
 
               // Submit Button
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Color(
-                      0xFF8A56E8,
-                    ), // Button background color
-                    foregroundColor: Colors.white, // Text (and icon) color
-                    padding: const EdgeInsets.symmetric(vertical: 8),
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(
+                      color: Color(0xFF8A56E8),
+                      width: 1.8,
+                    ),
+                    foregroundColor: const Color(0xFF8A56E8),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(
-                        20,
-                      ), // Optional: rounded corners
+                      borderRadius: BorderRadius.circular(20),
                     ),
                   ),
                   onPressed: _isSubmitting ? null : _submit,
-                  child: const Text(
-                    'Add Transaction',
-                    style: TextStyle(fontSize: 16),
+                  child: Text(
+                    isEditing ? 'Update Transaction' : 'Add Transaction',
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ),
+              const SizedBox(height: 24),
             ],
           ),
         ),

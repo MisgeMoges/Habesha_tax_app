@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'dart:convert';
 import '../../../core/config/frappe_config.dart';
 import '../../../core/services/frappe_client.dart';
+import '../../../core/utils/user_friendly_error.dart';
 
 class AdminChatScreen extends StatefulWidget {
   const AdminChatScreen({super.key});
@@ -78,7 +79,10 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
             .toList();
       }
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = UserFriendlyError.message(
+        e,
+        fallback: 'Unable to load chats right now.',
+      );
     } finally {
       setState(() {
         _loadingClients = false;
@@ -120,7 +124,10 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
       );
     } catch (e) {
       setState(() {
-        _errorMessage = 'Failed to send message: $e';
+        _errorMessage = UserFriendlyError.message(
+          e,
+          fallback: 'Unable to send message right now. Please try again.',
+        );
       });
     }
 
@@ -186,7 +193,10 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
         }).toList();
       }
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = UserFriendlyError.message(
+        e,
+        fallback: 'Unable to load messages right now.',
+      );
     } finally {
       setState(() {
         _loadingMessages = false;

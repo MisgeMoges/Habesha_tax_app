@@ -31,9 +31,14 @@ class SignUpRequested extends AuthEvent {
   final String tinNumber;
   final String taxCategory;
   final String addressLine1;
+  final String? addressLine2;
+  final String? postalCode;
   final String city;
   final String state;
   final String country;
+  final String? companyName;
+  final String? companyRegistrationNumber;
+  final String? vatNumber;
 
   const SignUpRequested({
     required this.email,
@@ -47,9 +52,14 @@ class SignUpRequested extends AuthEvent {
     required this.tinNumber,
     required this.taxCategory,
     required this.addressLine1,
+    this.addressLine2,
+    this.postalCode,
     required this.city,
     required this.state,
     required this.country,
+    this.companyName,
+    this.companyRegistrationNumber,
+    this.vatNumber,
   });
 
   @override
@@ -65,9 +75,14 @@ class SignUpRequested extends AuthEvent {
     tinNumber,
     taxCategory,
     addressLine1,
+    addressLine2,
+    postalCode,
     city,
     state,
     country,
+    companyName,
+    companyRegistrationNumber,
+    vatNumber,
   ];
 }
 

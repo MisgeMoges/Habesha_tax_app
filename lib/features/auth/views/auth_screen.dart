@@ -1,9 +1,7 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:habesha_tax_app/core/constants/app_color.dart';
 import 'package:habesha_tax_app/core/services/frappe_client.dart';
-import 'package:habesha_tax_app/core/config/frappe_config.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
@@ -28,7 +26,12 @@ class _AuthScreenState extends State<AuthScreen> {
   final _lastNameController = TextEditingController();
   final _mobileController = TextEditingController();
   final _tinController = TextEditingController();
+  final _companyNameController = TextEditingController();
+  final _companyRegistrationNumberController = TextEditingController();
+  final _vatNumberController = TextEditingController();
   final _addressLine1Controller = TextEditingController();
+  final _addressLine2Controller = TextEditingController();
+  final _postalCodeController = TextEditingController();
   final _cityController = TextEditingController();
   final _stateController = TextEditingController();
   String _selectedCountry = '';
@@ -66,7 +69,12 @@ class _AuthScreenState extends State<AuthScreen> {
     _lastNameController.dispose();
     _mobileController.dispose();
     _tinController.dispose();
+    _companyNameController.dispose();
+    _companyRegistrationNumberController.dispose();
+    _vatNumberController.dispose();
     _addressLine1Controller.dispose();
+    _addressLine2Controller.dispose();
+    _postalCodeController.dispose();
     _cityController.dispose();
     _stateController.dispose();
     super.dispose();
@@ -100,7 +108,8 @@ class _AuthScreenState extends State<AuthScreen> {
       }
     } catch (e) {
       setState(() {
-        _lookupError = 'Failed to load data: ${e.toString()}';
+        _lookupError =
+            'Some registration options could not be loaded. You can still continue.';
 
         // Set default values if API fails
         _countries = ['Ethiopia', 'Kenya', 'Uganda', 'Tanzania'];
@@ -151,9 +160,25 @@ class _AuthScreenState extends State<AuthScreen> {
           tinNumber: _tinController.text.trim(),
           taxCategory: _selectedTaxCategory,
           addressLine1: _addressLine1Controller.text.trim(),
+          addressLine2: _addressLine2Controller.text.trim().isEmpty
+              ? null
+              : _addressLine2Controller.text.trim(),
+          postalCode: _postalCodeController.text.trim().isEmpty
+              ? null
+              : _postalCodeController.text.trim(),
           city: _cityController.text.trim(),
           state: _stateController.text.trim(),
           country: _selectedCountry,
+          companyName: _companyNameController.text.trim().isEmpty
+              ? null
+              : _companyNameController.text.trim(),
+          companyRegistrationNumber:
+              _companyRegistrationNumberController.text.trim().isEmpty
+              ? null
+              : _companyRegistrationNumberController.text.trim(),
+          vatNumber: _vatNumberController.text.trim().isEmpty
+              ? null
+              : _vatNumberController.text.trim(),
         ),
       );
     }
@@ -404,437 +429,495 @@ class _AuthScreenState extends State<AuthScreen> {
       },
       child: Scaffold(
         body: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircleAvatar(
-                    radius: 50,
-                    backgroundColor: Colors.transparent,
-                    backgroundImage: const AssetImage(
-                      "assets/images/logo1.png",
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    _isLogin ? 'Welcome Back' : 'Create Account',
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  if (_isLogin) ...[
-                    TextFormField(
-                      controller: _emailController,
-                      decoration: const InputDecoration(
-                        labelText: 'Email',
-                        border: OutlineInputBorder(),
+          child: AnimatedPadding(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+            ),
+            child: SingleChildScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircleAvatar(
+                      radius: 50,
+                      backgroundColor: Colors.transparent,
+                      backgroundImage: const AssetImage(
+                        "assets/images/logo1.png",
                       ),
-                      keyboardType: TextInputType.emailAddress,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your email';
-                        }
-                        if (!value.contains('@')) {
-                          return 'Please enter a valid email';
-                        }
-                        return null;
-                      },
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      _isLogin ? 'Welcome Back' : 'Create Account',
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _passwordController,
-                      decoration: InputDecoration(
-                        labelText: 'Password',
-                        border: const OutlineInputBorder(),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscureLoginPassword
-                                ? Icons.visibility_off
-                                : Icons.visibility,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _obscureLoginPassword = !_obscureLoginPassword;
-                            });
-                          },
+                    if (_isLogin) ...[
+                      TextFormField(
+                        controller: _emailController,
+                        decoration: const InputDecoration(
+                          labelText: 'Email',
+                          border: OutlineInputBorder(),
                         ),
+                        keyboardType: TextInputType.emailAddress,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter your email';
+                          }
+                          if (!value.contains('@')) {
+                            return 'Please enter a valid email';
+                          }
+                          return null;
+                        },
                       ),
-                      obscureText: _obscureLoginPassword,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your password';
-                        }
-                        if (value.length < 6) {
-                          return 'Password must be at least 6 characters';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 24),
-                  ] else ...[
-                    if (_loadingLookups) const LinearProgressIndicator(),
-                    if (_lookupError != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8, bottom: 8),
-                        child: Text(
-                          _lookupError!,
-                          style: const TextStyle(color: Colors.red),
-                        ),
-                      ),
-                    Stepper(
-                      currentStep: _registerStep,
-                      onStepContinue: _handleStepContinue,
-                      onStepCancel: _handleStepCancel,
-                      controlsBuilder: (context, details) {
-                        final isLastStep = _registerStep == 3;
-                        return Row(
-                          children: [
-                            if (_registerStep > 0)
-                              TextButton(
-                                onPressed: details.onStepCancel,
-                                child: const Text('Back'),
-                              ),
-                            const SizedBox(width: 12),
-                            ElevatedButton(
-                              onPressed: details.onStepContinue,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColor.appButton,
-                              ),
-                              child: Text(isLastStep ? 'Register' : 'Next'),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _passwordController,
+                        decoration: InputDecoration(
+                          labelText: 'Password',
+                          border: const OutlineInputBorder(),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscureLoginPassword
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
                             ),
+                            onPressed: () {
+                              setState(() {
+                                _obscureLoginPassword = !_obscureLoginPassword;
+                              });
+                            },
+                          ),
+                        ),
+                        obscureText: _obscureLoginPassword,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter your password';
+                          }
+                          if (value.length < 6) {
+                            return 'Password must be at least 6 characters';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 24),
+                    ] else ...[
+                      if (_loadingLookups) const LinearProgressIndicator(),
+                      if (_lookupError != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8, bottom: 8),
+                          child: Text(
+                            _lookupError!,
+                            style: const TextStyle(color: Colors.red),
+                          ),
+                        ),
+                      Stepper(
+                        physics: const ClampingScrollPhysics(),
+                        currentStep: _registerStep,
+                        onStepContinue: _handleStepContinue,
+                        onStepCancel: _handleStepCancel,
+                        controlsBuilder: (context, details) {
+                          final isLastStep = _registerStep == 3;
+                          return Row(
+                            children: [
+                              if (_registerStep > 0)
+                                TextButton(
+                                  onPressed: details.onStepCancel,
+                                  child: const Text('Back'),
+                                ),
+                              const SizedBox(width: 12),
+                              ElevatedButton(
+                                onPressed: details.onStepContinue,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColor.appButton,
+                                ),
+                                child: Text(isLastStep ? 'Register' : 'Next'),
+                              ),
+                            ],
+                          );
+                        },
+                        steps: [
+                          Step(
+                            title: const Text('Account'),
+                            isActive: _registerStep >= 0,
+                            content: Column(
+                              children: [
+                                const SizedBox(height: 16),
+                                TextFormField(
+                                  controller: _firstNameController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'First Name *',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                TextFormField(
+                                  controller: _lastNameController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Last Name *',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                TextFormField(
+                                  controller: _emailController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Email *',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  keyboardType: TextInputType.emailAddress,
+                                ),
+                                const SizedBox(height: 16),
+                                TextFormField(
+                                  controller: _mobileController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Mobile Number *',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  keyboardType: TextInputType.phone,
+                                ),
+                                const SizedBox(height: 16),
+                                TextFormField(
+                                  controller: _passwordController,
+                                  decoration: InputDecoration(
+                                    labelText: 'Password *',
+                                    border: const OutlineInputBorder(),
+                                    suffixIcon: IconButton(
+                                      icon: Icon(
+                                        _obscureRegisterPassword
+                                            ? Icons.visibility_off
+                                            : Icons.visibility,
+                                      ),
+                                      onPressed: () {
+                                        setState(() {
+                                          _obscureRegisterPassword =
+                                              !_obscureRegisterPassword;
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                  obscureText: _obscureRegisterPassword,
+                                ),
+                                const SizedBox(height: 16),
+                                TextFormField(
+                                  controller: _confirmPasswordController,
+                                  decoration: InputDecoration(
+                                    labelText: 'Confirm Password *',
+                                    border: const OutlineInputBorder(),
+                                    suffixIcon: IconButton(
+                                      icon: Icon(
+                                        _obscureRegisterConfirmPassword
+                                            ? Icons.visibility_off
+                                            : Icons.visibility,
+                                      ),
+                                      onPressed: () {
+                                        setState(() {
+                                          _obscureRegisterConfirmPassword =
+                                              !_obscureRegisterConfirmPassword;
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                  obscureText: _obscureRegisterConfirmPassword,
+                                ),
+                                const SizedBox(height: 16),
+                                DropdownButtonFormField<String>(
+                                  value: _selectedUserCategory,
+                                  decoration: const InputDecoration(
+                                    labelText: 'User Category *',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  items: _userCategories.map((value) {
+                                    return DropdownMenuItem<String>(
+                                      value: value,
+                                      child: Text(value),
+                                    );
+                                  }).toList(),
+                                  onChanged: (value) {
+                                    if (value == null) return;
+                                    setState(
+                                      () => _selectedUserCategory = value,
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          Step(
+                            title: const Text('Business'),
+                            isActive: _registerStep >= 1,
+                            content: Column(
+                              children: [
+                                const SizedBox(height: 16),
+                                DropdownButtonFormField<String>(
+                                  value: _selectedBusinessType.isEmpty
+                                      ? null
+                                      : _selectedBusinessType,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Business Type *',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  items: _businessTypes.map((value) {
+                                    return DropdownMenuItem<String>(
+                                      value: value,
+                                      child: Text(value),
+                                    );
+                                  }).toList(),
+                                  onChanged: (value) {
+                                    if (value == null) return;
+                                    setState(
+                                      () => _selectedBusinessType = value,
+                                    );
+                                  },
+                                ),
+                                const SizedBox(height: 16),
+                                DropdownButtonFormField<String>(
+                                  value: _selectedBusinessStatus,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Business Status *',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  items: _businessStatuses.map((value) {
+                                    return DropdownMenuItem<String>(
+                                      value: value,
+                                      child: Text(value),
+                                    );
+                                  }).toList(),
+                                  onChanged: (value) {
+                                    if (value == null) return;
+                                    setState(
+                                      () => _selectedBusinessStatus = value,
+                                    );
+                                  },
+                                ),
+                                const SizedBox(height: 16),
+                                TextFormField(
+                                  controller: _tinController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Tax ID (TIN) *',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                TextFormField(
+                                  controller: _companyNameController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Company Name (Optional)',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                TextFormField(
+                                  controller:
+                                      _companyRegistrationNumberController,
+                                  decoration: const InputDecoration(
+                                    labelText:
+                                        'Company Registration Number (Optional)',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                TextFormField(
+                                  controller: _vatNumberController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'VAT Number (Optional)',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                DropdownButtonFormField<String>(
+                                  value: _selectedTaxCategory.isEmpty
+                                      ? null
+                                      : _selectedTaxCategory,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Tax Category *',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  items: _taxCategories.map((value) {
+                                    return DropdownMenuItem<String>(
+                                      value: value,
+                                      child: Text(value),
+                                    );
+                                  }).toList(),
+                                  onChanged: (value) {
+                                    if (value == null) return;
+                                    setState(
+                                      () => _selectedTaxCategory = value,
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          Step(
+                            title: const Text('Address'),
+                            isActive: _registerStep >= 2,
+                            content: Column(
+                              children: [
+                                const SizedBox(height: 16),
+                                TextFormField(
+                                  controller: _addressLine1Controller,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Address Line 1 *',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                TextFormField(
+                                  controller: _addressLine2Controller,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Address Line 2 (Optional)',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                TextFormField(
+                                  controller: _cityController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'City/Town *',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+
+                                const SizedBox(height: 16),
+                                TextFormField(
+                                  controller: _stateController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'State/Province *',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                DropdownButtonFormField<String>(
+                                  isExpanded: true, // ← ADD THIS
+                                  value: _selectedCountry.isEmpty
+                                      ? null
+                                      : _selectedCountry,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Country *',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  items: _countries.map((value) {
+                                    return DropdownMenuItem<String>(
+                                      value: value,
+                                      child: Text(
+                                        value,
+                                        overflow: TextOverflow
+                                            .ellipsis, // Optional: add ellipsis for long text
+                                      ),
+                                    );
+                                  }).toList(),
+                                  onChanged: (value) {
+                                    if (value == null) return;
+                                    setState(() => _selectedCountry = value);
+                                  },
+                                ),
+                                const SizedBox(height: 16),
+                                TextFormField(
+                                  controller: _postalCodeController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Postal Code (Optional)',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Step(
+                            title: const Text('Terms'),
+                            isActive: _registerStep >= 3,
+                            content: CheckboxListTile(
+                              value: _acceptTerms,
+                              contentPadding: EdgeInsets.zero,
+                              title: const Text('Accept Terms & Conditions *'),
+                              onChanged: (value) {
+                                setState(() => _acceptTerms = value ?? false);
+                              },
+                              controlAffinity: ListTileControlAffinity.leading,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    BlocBuilder<AuthBloc, AuthState>(
+                      builder: (context, state) {
+                        if (state is AuthLoading) {
+                          return const CircularProgressIndicator();
+                        }
+                        return Column(
+                          children: [
+                            Column(
+                              children: [
+                                if (_isLogin)
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: ElevatedButton(
+                                      onPressed: _submit,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppColor.appButton,
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 16,
+                                        ),
+                                      ),
+                                      child: const Text(
+                                        'Login',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                if (_isLogin)
+                                  TextButton(
+                                    onPressed: _resetPassword,
+                                    child: const Text('Forgot Password?'),
+                                  ),
+                              ],
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                setState(() {
+                                  _isLogin = !_isLogin;
+                                  _registerStep = 0;
+                                });
+                              },
+                              child: RichText(
+                                text: TextSpan(
+                                  style: const TextStyle(color: Colors.black),
+                                  children: [
+                                    TextSpan(
+                                      text: _isLogin
+                                          ? "Don't have account? "
+                                          : 'Already have an account? ',
+                                    ),
+                                    TextSpan(
+                                      text: _isLogin
+                                          ? 'Create new account'
+                                          : 'Login',
+                                      style: const TextStyle(
+                                        color: Colors.deepPurple,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 24),
                           ],
                         );
                       },
-                      steps: [
-                        Step(
-                          title: const Text('Account'),
-                          isActive: _registerStep >= 0,
-                          content: Column(
-                            children: [
-                              const SizedBox(height: 16),
-                              TextFormField(
-                                controller: _firstNameController,
-                                decoration: const InputDecoration(
-                                  labelText: 'First Name *',
-                                  border: OutlineInputBorder(),
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              TextFormField(
-                                controller: _lastNameController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Last Name *',
-                                  border: OutlineInputBorder(),
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              TextFormField(
-                                controller: _emailController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Email *',
-                                  border: OutlineInputBorder(),
-                                ),
-                                keyboardType: TextInputType.emailAddress,
-                              ),
-                              const SizedBox(height: 16),
-                              TextFormField(
-                                controller: _mobileController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Mobile Number *',
-                                  border: OutlineInputBorder(),
-                                ),
-                                keyboardType: TextInputType.phone,
-                              ),
-                              const SizedBox(height: 16),
-                              TextFormField(
-                                controller: _passwordController,
-                                decoration: InputDecoration(
-                                  labelText: 'Password *',
-                                  border: const OutlineInputBorder(),
-                                  suffixIcon: IconButton(
-                                    icon: Icon(
-                                      _obscureRegisterPassword
-                                          ? Icons.visibility_off
-                                          : Icons.visibility,
-                                    ),
-                                    onPressed: () {
-                                      setState(() {
-                                        _obscureRegisterPassword =
-                                            !_obscureRegisterPassword;
-                                      });
-                                    },
-                                  ),
-                                ),
-                                obscureText: _obscureRegisterPassword,
-                              ),
-                              const SizedBox(height: 16),
-                              TextFormField(
-                                controller: _confirmPasswordController,
-                                decoration: InputDecoration(
-                                  labelText: 'Confirm Password *',
-                                  border: const OutlineInputBorder(),
-                                  suffixIcon: IconButton(
-                                    icon: Icon(
-                                      _obscureRegisterConfirmPassword
-                                          ? Icons.visibility_off
-                                          : Icons.visibility,
-                                    ),
-                                    onPressed: () {
-                                      setState(() {
-                                        _obscureRegisterConfirmPassword =
-                                            !_obscureRegisterConfirmPassword;
-                                      });
-                                    },
-                                  ),
-                                ),
-                                obscureText: _obscureRegisterConfirmPassword,
-                              ),
-                              const SizedBox(height: 16),
-                              DropdownButtonFormField<String>(
-                                value: _selectedUserCategory,
-                                decoration: const InputDecoration(
-                                  labelText: 'User Category *',
-                                  border: OutlineInputBorder(),
-                                ),
-                                items: _userCategories.map((value) {
-                                  return DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(value),
-                                  );
-                                }).toList(),
-                                onChanged: (value) {
-                                  if (value == null) return;
-                                  setState(() => _selectedUserCategory = value);
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                        Step(
-                          title: const Text('Business'),
-                          isActive: _registerStep >= 1,
-                          content: Column(
-                            children: [
-                              const SizedBox(height: 16),
-                              DropdownButtonFormField<String>(
-                                value: _selectedBusinessType.isEmpty
-                                    ? null
-                                    : _selectedBusinessType,
-                                decoration: const InputDecoration(
-                                  labelText: 'Business Type *',
-                                  border: OutlineInputBorder(),
-                                ),
-                                items: _businessTypes.map((value) {
-                                  return DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(value),
-                                  );
-                                }).toList(),
-                                onChanged: (value) {
-                                  if (value == null) return;
-                                  setState(() => _selectedBusinessType = value);
-                                },
-                              ),
-                              const SizedBox(height: 16),
-                              DropdownButtonFormField<String>(
-                                value: _selectedBusinessStatus,
-                                decoration: const InputDecoration(
-                                  labelText: 'Business Status *',
-                                  border: OutlineInputBorder(),
-                                ),
-                                items: _businessStatuses.map((value) {
-                                  return DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(value),
-                                  );
-                                }).toList(),
-                                onChanged: (value) {
-                                  if (value == null) return;
-                                  setState(
-                                    () => _selectedBusinessStatus = value,
-                                  );
-                                },
-                              ),
-                              const SizedBox(height: 16),
-                              TextFormField(
-                                controller: _tinController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Tax ID (TIN) *',
-                                  border: OutlineInputBorder(),
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              DropdownButtonFormField<String>(
-                                value: _selectedTaxCategory.isEmpty
-                                    ? null
-                                    : _selectedTaxCategory,
-                                decoration: const InputDecoration(
-                                  labelText: 'Tax Category *',
-                                  border: OutlineInputBorder(),
-                                ),
-                                items: _taxCategories.map((value) {
-                                  return DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(value),
-                                  );
-                                }).toList(),
-                                onChanged: (value) {
-                                  if (value == null) return;
-                                  setState(() => _selectedTaxCategory = value);
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                        Step(
-                          title: const Text('Address'),
-                          isActive: _registerStep >= 2,
-                          content: Column(
-                            children: [
-                              const SizedBox(height: 16),
-                              TextFormField(
-                                controller: _addressLine1Controller,
-                                decoration: const InputDecoration(
-                                  labelText: 'Address Line 1 *',
-                                  border: OutlineInputBorder(),
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              TextFormField(
-                                controller: _cityController,
-                                decoration: const InputDecoration(
-                                  labelText: 'City/Town *',
-                                  border: OutlineInputBorder(),
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              TextFormField(
-                                controller: _stateController,
-                                decoration: const InputDecoration(
-                                  labelText: 'State/Province *',
-                                  border: OutlineInputBorder(),
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              DropdownButtonFormField<String>(
-                                isExpanded: true, // ← ADD THIS
-                                value: _selectedCountry.isEmpty
-                                    ? null
-                                    : _selectedCountry,
-                                decoration: const InputDecoration(
-                                  labelText: 'Country *',
-                                  border: OutlineInputBorder(),
-                                ),
-                                items: _countries.map((value) {
-                                  return DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(
-                                      value,
-                                      overflow: TextOverflow
-                                          .ellipsis, // Optional: add ellipsis for long text
-                                    ),
-                                  );
-                                }).toList(),
-                                onChanged: (value) {
-                                  if (value == null) return;
-                                  setState(() => _selectedCountry = value);
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                        Step(
-                          title: const Text('Terms'),
-                          isActive: _registerStep >= 3,
-                          content: CheckboxListTile(
-                            value: _acceptTerms,
-                            contentPadding: EdgeInsets.zero,
-                            title: const Text('Accept Terms & Conditions *'),
-                            onChanged: (value) {
-                              setState(() => _acceptTerms = value ?? false);
-                            },
-                            controlAffinity: ListTileControlAffinity.leading,
-                          ),
-                        ),
-                      ],
                     ),
                   ],
-                  BlocBuilder<AuthBloc, AuthState>(
-                    builder: (context, state) {
-                      if (state is AuthLoading) {
-                        return const CircularProgressIndicator();
-                      }
-                      return Column(
-                        children: [
-                          Column(
-                            children: [
-                              if (_isLogin)
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton(
-                                    onPressed: _submit,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppColor.appButton,
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 16,
-                                      ),
-                                    ),
-                                    child: const Text(
-                                      'Login',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              if (_isLogin)
-                                TextButton(
-                                  onPressed: _resetPassword,
-                                  child: const Text('Forgot Password?'),
-                                ),
-                            ],
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              setState(() {
-                                _isLogin = !_isLogin;
-                                _registerStep = 0;
-                              });
-                            },
-                            child: RichText(
-                              text: TextSpan(
-                                style: const TextStyle(color: Colors.black),
-                                children: [
-                                  TextSpan(
-                                    text: _isLogin
-                                        ? "Don't have account? "
-                                        : 'Already have an account? ',
-                                  ),
-                                  TextSpan(
-                                    text: _isLogin
-                                        ? 'Create new account'
-                                        : 'Login',
-                                    style: const TextStyle(
-                                      color: Colors.deepPurple,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                        ],
-                      );
-                    },
-                  ),
-                ],
+                ),
               ),
             ),
           ),

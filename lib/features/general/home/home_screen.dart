@@ -1,11 +1,17 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../shared/widgets/client_header.dart';
 import 'package:intl/intl.dart';
 import 'package:habesha_tax_app/core/config/frappe_config.dart';
 import 'package:habesha_tax_app/core/services/frappe_client.dart';
 import 'package:habesha_tax_app/data/model/transaction.dart';
+import 'package:habesha_tax_app/features/auth/bloc/auth_bloc.dart';
+import 'package:habesha_tax_app/features/auth/bloc/auth_state.dart';
+import 'package:habesha_tax_app/features/transaction/view/add_transaction_screen.dart';
+import 'package:habesha_tax_app/features/transaction/view/transaction_detail_screen.dart';
+import 'package:habesha_tax_app/core/utils/user_friendly_error.dart';
 import '../notifications/notifications_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -35,9 +41,38 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     try {
+      final authState = context.read<AuthBloc>().state;
+      final user = authState is Authenticated ? authState.user : null;
+      final userEmail = user?.email ?? '';
+      if (userEmail.isEmpty) {
+        throw Exception('User not authenticated');
+      }
+
+      final clientResponse = await _client.get(
+        '/api/resource/${FrappeConfig.clientDoctype}',
+        queryParameters: {
+          'filters': jsonEncode([
+            ['user_id', '=', userEmail],
+          ]),
+          'fields': jsonEncode(['name']),
+          'limit_page_length': '1',
+        },
+      );
+      final clientData = clientResponse['data'] ?? clientResponse['message'];
+      if (clientData is! List || clientData.isEmpty) {
+        throw Exception('Client record not found');
+      }
+      final clientName = (clientData.first as Map)['name']?.toString() ?? '';
+      if (clientName.isEmpty) {
+        throw Exception('Client record not found');
+      }
+
       final response = await _client.get(
         '/api/resource/${FrappeConfig.transactionDoctype}',
         queryParameters: {
+          'filters': jsonEncode([
+            [FrappeConfig.transactionClientField, '=', clientName],
+          ]),
           'fields': jsonEncode([
             'name',
             FrappeConfig.transactionPostingDateField,
@@ -82,7 +117,12 @@ class _HomeScreenState extends State<HomeScreen> {
         setState(() => _transactions = items);
       }
     } catch (e) {
-      setState(() => _error = 'Failed to load transactions: $e');
+      setState(
+        () => _error = UserFriendlyError.message(
+          e,
+          fallback: 'Unable to load transactions right now.',
+        ),
+      );
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -265,12 +305,32 @@ class _HomeScreenState extends State<HomeScreen> {
           'Transactions',
           style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
-        TextButton(
-          onPressed: () {},
-          child: const Text(
-            'See All',
-            style: TextStyle(color: Colors.deepPurple),
-          ),
+        Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.refresh, color: Colors.deepPurple),
+              onPressed: _loadTransactions,
+              tooltip: 'Refresh',
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const AddTransactionScreen(),
+                  ),
+                ).then((updated) {
+                  if (updated == true) {
+                    _loadTransactions();
+                  }
+                });
+              },
+              child: const Text(
+                'See All',
+                style: TextStyle(color: Colors.deepPurple),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -332,6 +392,17 @@ class _HomeScreenState extends State<HomeScreen> {
             color: isIncome ? Colors.green : Colors.red,
           ),
         ),
+        onTap: () async {
+          final updated = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => TransactionDetailScreen(transaction: tx),
+            ),
+          );
+          if (updated == true) {
+            _loadTransactions();
+          }
+        },
       ),
     );
   }

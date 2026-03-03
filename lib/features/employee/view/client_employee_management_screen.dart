@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/config/frappe_config.dart';
 import '../../../core/services/frappe_client.dart';
+import '../../../core/utils/user_friendly_error.dart';
 
 class ClientEmployeeManagementScreen extends StatefulWidget {
   const ClientEmployeeManagementScreen({super.key});
@@ -91,7 +92,10 @@ class _ClientEmployeeManagementScreenState
         throw Exception('Invalid payroll period data');
       }
     } catch (e) {
-      _payrollPeriodError = 'Failed to load payroll periods: ${e.toString()}';
+      _payrollPeriodError = UserFriendlyError.message(
+        e,
+        fallback: 'Unable to load payroll periods right now.',
+      );
     } finally {
       if (mounted) setState(() => _loadingPayrollPeriods = false);
     }
@@ -122,7 +126,10 @@ class _ClientEmployeeManagementScreenState
         throw Exception(response['message'] ?? 'Failed to load client');
       }
     } catch (e) {
-      _clientIdError = 'Failed to load client: ${e.toString()}';
+      _clientIdError = UserFriendlyError.message(
+        e,
+        fallback: 'Unable to load your client account right now.',
+      );
     } finally {
       if (mounted) setState(() => _loadingClientId = false);
     }
@@ -166,7 +173,10 @@ class _ClientEmployeeManagementScreenState
         throw Exception('Invalid employee data');
       }
     } catch (e) {
-      _employeeError = 'Failed to load employees: ${e.toString()}';
+      _employeeError = UserFriendlyError.message(
+        e,
+        fallback: 'Unable to load employees right now.',
+      );
     } finally {
       if (mounted) setState(() => _loadingEmployees = false);
     }
@@ -215,7 +225,10 @@ class _ClientEmployeeManagementScreenState
         throw Exception('Invalid employee data');
       }
     } catch (e) {
-      _detailError = 'Failed to load employee: ${e.toString()}';
+      _detailError = UserFriendlyError.message(
+        e,
+        fallback: 'Unable to load employee details right now.',
+      );
     } finally {
       if (mounted) setState(() => _loadingEmployeeDetails = false);
     }
@@ -262,7 +275,10 @@ class _ClientEmployeeManagementScreenState
         ..clear()
         ..addAll(rows.map((e) => Map<String, dynamic>.from(e as Map)));
     } catch (e) {
-      _detailError = 'Failed to load payroll: ${e.toString()}';
+      _detailError = UserFriendlyError.message(
+        e,
+        fallback: 'Unable to load payroll entries right now.',
+      );
     } finally {
       if (mounted) setState(() => _loadingEmployeeDetails = false);
     }
@@ -443,62 +459,20 @@ class _ClientEmployeeManagementScreenState
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to save payroll: ${e.toString()}')),
+        SnackBar(
+          content: Text(
+            UserFriendlyError.message(
+              e,
+              fallback:
+                  'Unable to save payroll entry right now. Please try again.',
+            ),
+          ),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
   }
-  // Future<void> _savePayrollEntry({
-  //   required String employeeId,
-  //   required String payrollPeriod,
-  //   required String postingDate,
-  //   required String workedHours,
-  //   required String hourlyRate,
-  // }) async {
-  //   setState(() => _isSaving = true);
-
-  //   try {
-  //     final data = await _fetchEmployeeDetails(employeeId);
-  //     final rows =
-  //         data[FrappeConfig.clientEmployeePayrollTableField] as List? ?? [];
-
-  //     final updatedRows = rows
-  //         .map((e) => Map<String, dynamic>.from(e as Map))
-  //         .toList();
-
-  //     final entry = <String, dynamic>{
-  //       FrappeConfig.payrollPeriodField: payrollPeriod,
-  //       FrappeConfig.payrollPostingDateField: postingDate,
-  //       FrappeConfig.payrollHourlyRateField:
-  //           double.tryParse(hourlyRate) ?? hourlyRate,
-  //       FrappeConfig.payrollWorkedHoursField: double.tryParse(workedHours) ?? 0,
-  //     };
-
-  //     updatedRows.add(entry);
-  //     print('Updated payroll entries: $updatedRows');
-
-  //     await _client.put(
-  //       '/api/resource/${FrappeConfig.clientEmployeeDoctype}/$employeeId',
-  //       body: {
-  //         'data': {FrappeConfig.clientEmployeePayrollTableField: updatedRows},
-  //       },
-  //     );
-
-  //     await _loadPayrollEntries(employeeId);
-  //     if (!mounted) return;
-  //     ScaffoldMessenger.of(
-  //       context,
-  //     ).showSnackBar(const SnackBar(content: Text('Payroll entry saved.')));
-  //   } catch (e) {
-  //     if (!mounted) return;
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       SnackBar(content: Text('Failed to save payroll: ${e.toString()}')),
-  //     );
-  //   } finally {
-  //     if (mounted) setState(() => _isSaving = false);
-  //   }
-  // }
 
   Future<void> _saveEmployee() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
@@ -553,7 +527,14 @@ class _ClientEmployeeManagementScreenState
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to save employee: ${e.toString()}')),
+        SnackBar(
+          content: Text(
+            UserFriendlyError.message(
+              e,
+              fallback: 'Unable to save employee right now. Please try again.',
+            ),
+          ),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isSaving = false);

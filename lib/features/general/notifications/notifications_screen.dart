@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/config/frappe_config.dart';
 import '../../../core/services/frappe_client.dart';
+import '../../../core/utils/user_friendly_error.dart';
 import 'notification_detail_screen.dart';
 
 class NotificationScreen extends StatefulWidget {
@@ -74,7 +75,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
         }).toList();
       }
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = UserFriendlyError.message(
+        e,
+        fallback: 'Unable to load notifications right now.',
+      );
     } finally {
       setState(() {
         _loading = false;

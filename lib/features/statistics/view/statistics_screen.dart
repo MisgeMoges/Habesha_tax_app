@@ -2,12 +2,17 @@ import 'dart:convert';
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:habesha_tax_app/core/config/frappe_config.dart';
 import 'package:habesha_tax_app/core/services/frappe_client.dart';
 import 'package:habesha_tax_app/data/model/transaction.dart';
 import '../../general/notifications/notifications_screen.dart';
 import '../../../shared/widgets/client_header.dart';
+import 'package:habesha_tax_app/features/auth/bloc/auth_bloc.dart';
+import 'package:habesha_tax_app/features/auth/bloc/auth_state.dart';
+import 'package:habesha_tax_app/features/transaction/view/transaction_detail_screen.dart';
+import 'package:habesha_tax_app/core/utils/user_friendly_error.dart';
 
 class StatisticsScreen extends StatefulWidget {
   const StatisticsScreen({super.key});
@@ -37,9 +42,38 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     });
 
     try {
+      final authState = context.read<AuthBloc>().state;
+      final user = authState is Authenticated ? authState.user : null;
+      final userEmail = user?.email ?? '';
+      if (userEmail.isEmpty) {
+        throw Exception('User not authenticated');
+      }
+
+      final clientResponse = await _client.get(
+        '/api/resource/${FrappeConfig.clientDoctype}',
+        queryParameters: {
+          'filters': jsonEncode([
+            ['user_id', '=', userEmail],
+          ]),
+          'fields': jsonEncode(['name']),
+          'limit_page_length': '1',
+        },
+      );
+      final clientData = clientResponse['data'] ?? clientResponse['message'];
+      if (clientData is! List || clientData.isEmpty) {
+        throw Exception('Client record not found');
+      }
+      final clientName = (clientData.first as Map)['name']?.toString() ?? '';
+      if (clientName.isEmpty) {
+        throw Exception('Client record not found');
+      }
+
       final response = await _client.get(
         '/api/resource/${FrappeConfig.transactionDoctype}',
         queryParameters: {
+          'filters': jsonEncode([
+            [FrappeConfig.transactionClientField, '=', clientName],
+          ]),
           'fields': jsonEncode([
             'name',
             FrappeConfig.transactionPostingDateField,
@@ -84,7 +118,12 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
         setState(() => _transactions = items);
       }
     } catch (e) {
-      setState(() => _error = 'Failed to load statistics: $e');
+      setState(
+        () => _error = UserFriendlyError.message(
+          e,
+          fallback: 'Unable to load statistics right now.',
+        ),
+      );
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -356,37 +395,50 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
         ? DateFormat('MMM dd, yyyy').format(tx.postingDateValue!)
         : tx.postingDate;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          CircleAvatar(
-            backgroundColor: Colors.white,
-            child: Icon(_iconForType(tx.type), color: Colors.grey[700]),
+    return InkWell(
+      onTap: () async {
+        final updated = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => TransactionDetailScreen(transaction: tx),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  tx.title,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                Text(dateText, style: const TextStyle(fontSize: 12)),
-              ],
+        );
+        if (updated == true) {
+          _loadTransactions();
+        }
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            CircleAvatar(
+              backgroundColor: Colors.white,
+              child: Icon(_iconForType(tx.type), color: Colors.grey[700]),
             ),
-          ),
-          Text(
-            amountText,
-            style: TextStyle(
-              color: tx.isIncome
-                  ? Colors.green
-                  : const Color.fromARGB(234, 239, 135, 127),
-              fontWeight: FontWeight.bold,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    tx.title,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  Text(dateText, style: const TextStyle(fontSize: 12)),
+                ],
+              ),
             ),
-          ),
-        ],
+            Text(
+              amountText,
+              style: TextStyle(
+                color: tx.isIncome
+                    ? Colors.green
+                    : const Color.fromARGB(234, 239, 135, 127),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

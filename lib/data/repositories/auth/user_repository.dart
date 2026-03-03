@@ -20,9 +20,14 @@ abstract class AuthRepository {
     String tinNumber,
     String taxCategory,
     String addressLine1,
+    String? addressLine2,
+    String? postalCode,
     String city,
     String state,
     String country,
+    String? companyName,
+    String? companyRegistrationNumber,
+    String? vatNumber,
   );
 
   Future<Either<Failure, User>> signInWithGoogle();

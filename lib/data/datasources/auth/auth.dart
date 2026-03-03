@@ -18,9 +18,14 @@ abstract class AuthRemoteDataSource {
     String tinNumber,
     String taxCategory,
     String addressLine1,
+    String? addressLine2,
+    String? postalCode,
     String city,
     String state,
     String country,
+    String? companyName,
+    String? companyRegistrationNumber,
+    String? vatNumber,
   );
   Future<User> signInWithGoogle();
   Future<User> signInWithApple();
@@ -76,9 +81,14 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     String tinNumber,
     String taxCategory,
     String addressLine1,
+    String? addressLine2,
+    String? postalCode,
     String city,
     String state,
     String country,
+    String? companyName,
+    String? companyRegistrationNumber,
+    String? vatNumber,
   ) async {
     final trimmedEmail = email.trim();
     final inferredUsername = trimmedEmail.contains('@')
@@ -107,9 +117,14 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       'tin_number': tinNumber,
       'tax_category': taxCategory,
       'address_line_1': addressLine1,
-      'address_line_2': '',
+      'address_line_2': addressLine2?.trim() ?? '',
+      'postal_code': postalCode?.trim() ?? '',
       'city': city,
       'state': state,
+      FrappeConfig.clientCompanyNameField: companyName?.trim() ?? '',
+      FrappeConfig.clientCompanyRegistrationNumberField:
+          companyRegistrationNumber?.trim() ?? '',
+      FrappeConfig.clientVatNumberField: vatNumber?.trim() ?? '',
     };
 
     final response = await _client.post(

@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/config/frappe_config.dart';
 import '../../../core/services/frappe_client.dart';
+import '../../../core/utils/user_friendly_error.dart';
 import '../../../data/model/user.dart';
 import '../../auth/bloc/auth_bloc.dart';
 import '../../auth/bloc/auth_event.dart';
 import '../../auth/bloc/auth_state.dart';
 import '../../auth/views/auth_screen.dart';
 import '../../employee/view/client_employee_management_screen.dart';
-import '../../transaction/view/invoice_generate_screen.dart';
+import '../../transaction/view/invoice/invoice_screen.dart';
 import 'profile_edit_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -25,6 +26,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _clientName;
   String? _clientEmail;
   String? _clientPhone;
+  String? _companyName;
+  String? _companyRegistrationNumber;
+  String? _vatNumber;
 
   @override
   void initState() {
@@ -48,7 +52,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         queryParameters: {
           'filters': '[["${FrappeConfig.clientUserIdField}","=","$email"]]',
           'fields':
-              '["${FrappeConfig.clientFullNameField}","${FrappeConfig.clientEmailField}","${FrappeConfig.clientPhoneField}"]',
+              '["${FrappeConfig.clientFullNameField}","${FrappeConfig.clientEmailField}","${FrappeConfig.clientPhoneField}","${FrappeConfig.clientCompanyNameField}","${FrappeConfig.clientCompanyRegistrationNumberField}","${FrappeConfig.clientVatNumberField}"]',
           'limit_page_length': '1',
         },
       );
@@ -59,11 +63,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _clientName = first[FrappeConfig.clientFullNameField]?.toString() ?? '';
         _clientEmail = first[FrappeConfig.clientEmailField]?.toString() ?? '';
         _clientPhone = first[FrappeConfig.clientPhoneField]?.toString() ?? '';
+        _companyName =
+            first[FrappeConfig.clientCompanyNameField]?.toString() ?? '';
+        _companyRegistrationNumber =
+            first[FrappeConfig.clientCompanyRegistrationNumberField]
+                ?.toString() ??
+            '';
+        _vatNumber = first[FrappeConfig.clientVatNumberField]?.toString() ?? '';
       } else {
         throw Exception('Client record not found');
       }
     } catch (e) {
-      _error = 'Failed to load profile: ${e.toString()}';
+      _error = UserFriendlyError.message(
+        e,
+        fallback: 'Unable to load profile right now.',
+      );
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -93,7 +107,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         icon: Icons.receipt_long,
         label: 'Generate Invoice',
         color: Colors.indigo,
-        screen: InvoiceGenerateScreen(),
+        screen: InvoiceScreen(),
       ),
       _ProfileItem(icon: Icons.logout, label: 'Logout', color: Colors.red),
     ];
@@ -162,6 +176,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
               padding: const EdgeInsets.only(top: 4),
               child: Text(
                 _clientPhone!,
+                style: const TextStyle(color: Colors.grey),
+              ),
+            ),
+          if (_companyName?.isNotEmpty == true)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                'Company: ${_companyName!}',
+                style: const TextStyle(color: Colors.grey),
+              ),
+            ),
+          if (_companyRegistrationNumber?.isNotEmpty == true)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                'Company Reg No: ${_companyRegistrationNumber!}',
+                style: const TextStyle(color: Colors.grey),
+              ),
+            ),
+          if (_vatNumber?.isNotEmpty == true)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                'VAT No: ${_vatNumber!}',
                 style: const TextStyle(color: Colors.grey),
               ),
             ),

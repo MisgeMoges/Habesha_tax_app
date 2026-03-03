@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/config/frappe_config.dart';
 import '../../../core/services/frappe_client.dart';
+import '../../../core/utils/user_friendly_error.dart';
 import '../../../data/model/user.dart';
 import '../../auth/bloc/auth_bloc.dart';
 import '../../auth/bloc/auth_state.dart';
@@ -22,8 +23,13 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _tinController = TextEditingController();
+  final _companyNameController = TextEditingController();
+  final _companyRegistrationNumberController = TextEditingController();
+  final _vatNumberController = TextEditingController();
   final _taxCategoryController = TextEditingController();
   final _addressLine1Controller = TextEditingController();
+  final _addressLine2Controller = TextEditingController();
+  final _postalCodeController = TextEditingController();
   final _cityController = TextEditingController();
   final _stateController = TextEditingController();
 
@@ -44,8 +50,13 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     _emailController.dispose();
     _phoneController.dispose();
     _tinController.dispose();
+    _companyNameController.dispose();
+    _companyRegistrationNumberController.dispose();
+    _vatNumberController.dispose();
     _taxCategoryController.dispose();
     _addressLine1Controller.dispose();
+    _addressLine2Controller.dispose();
+    _postalCodeController.dispose();
     _cityController.dispose();
     _stateController.dispose();
     super.dispose();
@@ -67,7 +78,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         queryParameters: {
           'filters': '[["${FrappeConfig.clientUserIdField}","=","$email"]]',
           'fields':
-              '["name","${FrappeConfig.clientFullNameField}","${FrappeConfig.clientEmailField}","${FrappeConfig.clientPhoneField}","${FrappeConfig.clientTinNumberField}","${FrappeConfig.clientTaxCategoryField}","${FrappeConfig.clientAddressLine1Field}","${FrappeConfig.clientCityField}","${FrappeConfig.clientStateField}"]',
+              '["name","${FrappeConfig.clientFullNameField}","${FrappeConfig.clientEmailField}","${FrappeConfig.clientPhoneField}","${FrappeConfig.clientTinNumberField}","${FrappeConfig.clientCompanyNameField}","${FrappeConfig.clientCompanyRegistrationNumberField}","${FrappeConfig.clientVatNumberField}","${FrappeConfig.clientTaxCategoryField}","${FrappeConfig.clientAddressLine1Field}","${FrappeConfig.clientAddressLine2Field}","${FrappeConfig.clientPostalCodeField}","${FrappeConfig.clientCityField}","${FrappeConfig.clientStateField}"]',
           'limit_page_length': '1',
         },
       );
@@ -84,10 +95,22 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
             first[FrappeConfig.clientPhoneField]?.toString() ?? '';
         _tinController.text =
             first[FrappeConfig.clientTinNumberField]?.toString() ?? '';
+        _companyNameController.text =
+            first[FrappeConfig.clientCompanyNameField]?.toString() ?? '';
+        _companyRegistrationNumberController.text =
+            first[FrappeConfig.clientCompanyRegistrationNumberField]
+                ?.toString() ??
+            '';
+        _vatNumberController.text =
+            first[FrappeConfig.clientVatNumberField]?.toString() ?? '';
         _taxCategoryController.text =
             first[FrappeConfig.clientTaxCategoryField]?.toString() ?? '';
         _addressLine1Controller.text =
             first[FrappeConfig.clientAddressLine1Field]?.toString() ?? '';
+        _addressLine2Controller.text =
+            first[FrappeConfig.clientAddressLine2Field]?.toString() ?? '';
+        _postalCodeController.text =
+            first[FrappeConfig.clientPostalCodeField]?.toString() ?? '';
         _cityController.text =
             first[FrappeConfig.clientCityField]?.toString() ?? '';
         _stateController.text =
@@ -96,7 +119,10 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         throw Exception('Client record not found');
       }
     } catch (e) {
-      _error = 'Failed to load profile: ${e.toString()}';
+      _error = UserFriendlyError.message(
+        e,
+        fallback: 'Unable to load profile right now.',
+      );
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -116,9 +142,16 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         FrappeConfig.clientFullNameField: _fullNameController.text.trim(),
         FrappeConfig.clientPhoneField: _phoneController.text.trim(),
         FrappeConfig.clientTinNumberField: _tinController.text.trim(),
+        FrappeConfig.clientCompanyNameField: _companyNameController.text.trim(),
+        FrappeConfig.clientCompanyRegistrationNumberField:
+            _companyRegistrationNumberController.text.trim(),
+        FrappeConfig.clientVatNumberField: _vatNumberController.text.trim(),
         FrappeConfig.clientTaxCategoryField: _taxCategoryController.text.trim(),
         FrappeConfig.clientAddressLine1Field: _addressLine1Controller.text
             .trim(),
+        FrappeConfig.clientAddressLine2Field: _addressLine2Controller.text
+            .trim(),
+        FrappeConfig.clientPostalCodeField: _postalCodeController.text.trim(),
         FrappeConfig.clientCityField: _cityController.text.trim(),
         FrappeConfig.clientStateField: _stateController.text.trim(),
       };
@@ -135,7 +168,14 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update profile: ${e.toString()}')),
+        SnackBar(
+          content: Text(
+            UserFriendlyError.message(
+              e,
+              fallback: 'Unable to update profile right now. Please try again.',
+            ),
+          ),
+        ),
       );
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -186,7 +226,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           const SizedBox(height: 12),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.all(16),
               child: Form(
                 key: _formKey,
                 child: Column(
@@ -230,6 +270,21 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                     ),
                     const SizedBox(height: 12),
                     _buildTextField(
+                      controller: _companyNameController,
+                      label: 'Company Name (Optional)',
+                    ),
+                    const SizedBox(height: 12),
+                    _buildTextField(
+                      controller: _companyRegistrationNumberController,
+                      label: 'Company Registration Number (Optional)',
+                    ),
+                    const SizedBox(height: 12),
+                    _buildTextField(
+                      controller: _vatNumberController,
+                      label: 'VAT Number (Optional)',
+                    ),
+                    const SizedBox(height: 12),
+                    _buildTextField(
                       controller: _taxCategoryController,
                       label: 'Tax Category',
                     ),
@@ -239,6 +294,11 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                       label: 'Address Line 1',
                     ),
                     const SizedBox(height: 12),
+                    _buildTextField(
+                      controller: _addressLine2Controller,
+                      label: 'Address Line 2 (Optional)',
+                    ),
+                    const SizedBox(height: 12),
                     _buildTextField(controller: _cityController, label: 'City'),
                     const SizedBox(height: 12),
                     _buildTextField(
@@ -246,6 +306,11 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                       label: 'State',
                     ),
                     const SizedBox(height: 16),
+                    const SizedBox(height: 12),
+                    _buildTextField(
+                      controller: _postalCodeController,
+                      label: 'Postal Code (Optional)',
+                    ),
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
@@ -262,7 +327,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                         label: const Text('Update Profile'),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
                   ],
                 ),
               ),

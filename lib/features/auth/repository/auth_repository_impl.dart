@@ -61,9 +61,14 @@ class AuthRepositoryImpl implements AuthRepository {
     String tinNumber,
     String taxCategory,
     String addressLine1,
+    String? addressLine2,
+    String? postalCode,
     String city,
     String state,
     String country,
+    String? companyName,
+    String? companyRegistrationNumber,
+    String? vatNumber,
   ) async {
     if (await networkInfo.isConnected) {
       try {
@@ -79,9 +84,14 @@ class AuthRepositoryImpl implements AuthRepository {
           tinNumber,
           taxCategory,
           addressLine1,
+          addressLine2,
+          postalCode,
           city,
           state,
           country,
+          companyName,
+          companyRegistrationNumber,
+          vatNumber,
         );
         return Right(user);
       } catch (e) {
