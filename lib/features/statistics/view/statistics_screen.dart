@@ -7,7 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:habesha_tax_app/core/config/frappe_config.dart';
 import 'package:habesha_tax_app/core/services/frappe_client.dart';
 import 'package:habesha_tax_app/data/model/transaction.dart';
-import '../../general/notifications/notifications_screen.dart';
+import '../../general/notifications/notification_bell_button.dart';
 import '../../../shared/widgets/client_header.dart';
 import 'package:habesha_tax_app/features/auth/bloc/auth_bloc.dart';
 import 'package:habesha_tax_app/features/auth/bloc/auth_state.dart';
@@ -151,20 +151,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                 children: [
                   const ClientProfileLeading(),
                   const Expanded(child: Center(child: ClientAppBarTitle())),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.notifications_none,
-                      color: Colors.black,
-                    ),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const NotificationScreen(),
-                        ),
-                      );
-                    },
-                  ),
+                  const NotificationBellButton(),
                 ],
               ),
               const SizedBox(height: 24),

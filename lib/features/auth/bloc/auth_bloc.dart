@@ -91,6 +91,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       event.state,
       event.country,
       event.companyName,
+      event.companyLogoPath,
       event.companyRegistrationNumber,
       event.vatNumber,
     );

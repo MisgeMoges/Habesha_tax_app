@@ -19,12 +19,14 @@ import 'features/statistics/view/statistics_screen.dart';
 import 'features/transaction/view/add_transaction_screen.dart';
 import 'features/chat/view/chat_screen.dart';
 import 'features/auth/views/profile_screen.dart';
+// import 'core/services/notification_service.dart';
 
 // Import the BottomNavBar
 import 'shared/navigations/bottom_nav_bar.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // await NotificationService.initialize();
   runApp(const MyApp());
 }
 
@@ -89,16 +91,22 @@ class _AppWrapperState extends State<AppWrapper> {
 
         if (state is Authenticated) {
           return Scaffold(
-            body: _screens[_currentIndex],
+            body: IndexedStack(index: _currentIndex, children: _screens),
 
             floatingActionButtonLocation:
                 FloatingActionButtonLocation.centerDocked,
-            bottomNavigationBar: BottomNavBar(
-              selectedIndex: _currentIndex,
-              onDestinationSelected: (index) {
-                setState(() {
-                  _currentIndex = index;
-                });
+            bottomNavigationBar: ValueListenableBuilder<int>(
+              valueListenable: AdminChatScreen.unreadCountNotifier,
+              builder: (context, unreadCount, _) {
+                return BottomNavBar(
+                  selectedIndex: _currentIndex,
+                  chatUnreadCount: unreadCount,
+                  onDestinationSelected: (index) {
+                    setState(() {
+                      _currentIndex = index;
+                    });
+                  },
+                );
               },
             ),
           );

@@ -63,6 +63,7 @@ class FrappeConfig {
   static const String clientCityField = 'city';
   static const String clientStateField = 'state';
   static const String clientCompanyNameField = 'company_name';
+  static const String clientCompanyLogoField = 'company_logo';
   static const String clientCompanyRegistrationNumberField =
       'company_registration_number';
   static const String clientVatNumberField = 'vat_number';
@@ -174,6 +175,7 @@ class FrappeConfig {
   static const String notificationBodyField = 'email_content';
   static const String notificationTimestampField = 'creation';
   static const String notificationRecipientField = 'for_user';
+  static const String notificationReadField = 'read';
   static const String notificationTypeField = 'type';
   static const String notificationTargetTypeField = 'target_type';
   static const String notificationCategoriesField = 'categories';

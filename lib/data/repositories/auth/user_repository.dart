@@ -26,6 +26,7 @@ abstract class AuthRepository {
     String state,
     String country,
     String? companyName,
+    String? companyLogoPath,
     String? companyRegistrationNumber,
     String? vatNumber,
   );

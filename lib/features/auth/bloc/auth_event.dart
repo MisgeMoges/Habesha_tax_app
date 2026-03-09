@@ -37,6 +37,7 @@ class SignUpRequested extends AuthEvent {
   final String state;
   final String country;
   final String? companyName;
+  final String? companyLogoPath;
   final String? companyRegistrationNumber;
   final String? vatNumber;
 
@@ -58,6 +59,7 @@ class SignUpRequested extends AuthEvent {
     required this.state,
     required this.country,
     this.companyName,
+    this.companyLogoPath,
     this.companyRegistrationNumber,
     this.vatNumber,
   });
@@ -81,6 +83,7 @@ class SignUpRequested extends AuthEvent {
     state,
     country,
     companyName,
+    companyLogoPath,
     companyRegistrationNumber,
     vatNumber,
   ];

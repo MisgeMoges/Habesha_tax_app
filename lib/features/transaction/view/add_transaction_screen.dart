@@ -7,7 +7,7 @@ import '../../../shared/widgets/client_header.dart';
 import 'package:habesha_tax_app/core/config/frappe_config.dart';
 import 'package:habesha_tax_app/core/services/frappe_client.dart';
 import 'add_transaction_form.dart';
-import '../../general/notifications/notifications_screen.dart';
+import '../../general/notifications/notification_bell_button.dart';
 import 'package:habesha_tax_app/data/model/transaction_category.dart';
 import 'package:habesha_tax_app/data/model/transaction.dart';
 import 'package:habesha_tax_app/features/auth/bloc/auth_bloc.dart';
@@ -302,17 +302,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   padding: EdgeInsets.all(10),
                   child: ClientProfileLeading(),
                 ),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.notifications_none, color: Colors.black),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => NotificationScreen()),
-                );
-              },
-            ),
-          ],
+          actions: [const NotificationBellButton()],
         ),
         body: Column(
           children: [

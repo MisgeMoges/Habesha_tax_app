@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../../../core/config/frappe_config.dart';
 import '../../../../core/services/frappe_client.dart';
+import '../../../../data/model/transaction_category.dart';
 import 'invoice_models.dart';
 
 class InvoiceService {
@@ -150,6 +151,88 @@ class InvoiceService {
       '/api/resource/${FrappeConfig.clientInvoiceDoctype}',
       body: {'data': payload},
     );
+  }
+
+  Future<void> createTransactionForInvoice({
+    required String clientId,
+    required double amount,
+    required String postingDate,
+    required String invoiceNumber,
+    required String transactionType,
+    String? transactionCategoryId,
+  }) async {
+    final categoryId =
+        (transactionCategoryId != null &&
+            transactionCategoryId.trim().isNotEmpty)
+        ? transactionCategoryId.trim()
+        : await _resolveInvoiceTransactionCategoryId();
+
+    final payload = <String, dynamic>{
+      FrappeConfig.transactionClientField: clientId,
+      FrappeConfig.transactionPostingDateField: postingDate,
+      FrappeConfig.transactionAmountField: amount,
+      FrappeConfig.transactionTypeField: transactionType,
+      FrappeConfig.transactionCategoryField: categoryId,
+      FrappeConfig.transactionNoteField: invoiceNumber.trim().isEmpty
+          ? 'Created from invoice generation'
+          : 'Created from invoice $invoiceNumber',
+    };
+
+    await _client.post(
+      '/api/resource/${FrappeConfig.transactionDoctype}',
+      body: payload,
+    );
+  }
+
+  Future<List<TransactionCategory>> loadTransactionCategories() async {
+    final response = await _client.get(
+      '/api/method/habesha_tax.habesha_tax.doctype.transaction_category.transaction_category.get_transaction_categories',
+    );
+    final data = response['data'];
+    if (data is! List) return const [];
+
+    return data
+        .map(
+          (item) => TransactionCategory.fromJson(
+            Map<String, dynamic>.from(item as Map),
+          ),
+        )
+        .where(
+          (item) => item.id.trim().isNotEmpty && item.name.trim().isNotEmpty,
+        )
+        .toList();
+  }
+
+  Future<String> _resolveInvoiceTransactionCategoryId() async {
+    final response = await _client.get(
+      '/api/method/habesha_tax.habesha_tax.doctype.transaction_category.transaction_category.get_transaction_categories',
+    );
+
+    final data = response['data'];
+    if (data is! List || data.isEmpty) {
+      throw Exception('No transaction category found for invoice entry');
+    }
+
+    final categories = data
+        .map((item) => Map<String, dynamic>.from(item as Map))
+        .toList();
+
+    for (final category in categories) {
+      final id = category['id']?.toString() ?? '';
+      final name = category['name']?.toString().toLowerCase() ?? '';
+      if (id.isEmpty) continue;
+      if (name.contains('sales') ||
+          name.contains('invoice') ||
+          name.contains('service')) {
+        return id;
+      }
+    }
+
+    final fallbackId = categories.first['id']?.toString() ?? '';
+    if (fallbackId.isEmpty) {
+      throw Exception('No valid transaction category found for invoice entry');
+    }
+    return fallbackId;
   }
 
   Future<void> updateInvoice(

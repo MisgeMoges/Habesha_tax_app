@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:habesha_tax_app/core/constants/app_color.dart';
 import 'package:habesha_tax_app/core/services/frappe_client.dart';
 import '../bloc/auth_bloc.dart';
@@ -29,6 +30,7 @@ class _AuthScreenState extends State<AuthScreen> {
   final _companyNameController = TextEditingController();
   final _companyRegistrationNumberController = TextEditingController();
   final _vatNumberController = TextEditingController();
+  String? _companyLogoPath;
   final _addressLine1Controller = TextEditingController();
   final _addressLine2Controller = TextEditingController();
   final _postalCodeController = TextEditingController();
@@ -135,6 +137,23 @@ class _AuthScreenState extends State<AuthScreen> {
     return list.first;
   }
 
+  Future<void> _pickCompanyLogo() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+      );
+      final path = result?.files.single.path;
+      if (path == null || path.trim().isEmpty) return;
+      setState(() => _companyLogoPath = path);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to select logo right now.')),
+      );
+    }
+  }
+
   void _submit() {
     if (_isLogin && !_formKey.currentState!.validate()) return;
     if (!_isLogin && !_validateAllRegistration()) return;
@@ -172,6 +191,7 @@ class _AuthScreenState extends State<AuthScreen> {
           companyName: _companyNameController.text.trim().isEmpty
               ? null
               : _companyNameController.text.trim(),
+          companyLogoPath: _companyLogoPath,
           companyRegistrationNumber:
               _companyRegistrationNumberController.text.trim().isEmpty
               ? null
@@ -711,6 +731,16 @@ class _AuthScreenState extends State<AuthScreen> {
                                   decoration: const InputDecoration(
                                     labelText: 'Company Name (Optional)',
                                     border: OutlineInputBorder(),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                OutlinedButton.icon(
+                                  onPressed: _pickCompanyLogo,
+                                  icon: const Icon(Icons.image_outlined),
+                                  label: Text(
+                                    _companyLogoPath == null
+                                        ? 'Select Company Logo (Optional)'
+                                        : 'Logo Selected: ${_companyLogoPath!.split('/').last}',
                                   ),
                                 ),
                                 const SizedBox(height: 16),

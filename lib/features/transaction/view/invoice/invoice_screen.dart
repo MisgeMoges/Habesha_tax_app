@@ -6,6 +6,7 @@ import '../../../auth/bloc/auth_bloc.dart';
 import '../../../auth/bloc/auth_state.dart';
 import '../../../../core/config/frappe_config.dart';
 import '../../../../core/utils/user_friendly_error.dart';
+import '../../../../data/model/transaction_category.dart';
 import 'invoice_models.dart';
 import 'invoice_service.dart';
 import 'widgets/invoice_detail_view.dart';
@@ -43,10 +44,19 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
 
   final _vatAmountController = TextEditingController(text: '0');
   final List<InvoiceServiceLineForm> _serviceForms = [];
+  static const List<String> _transactionTypes = [
+    'Income',
+    'Expense',
+    'Payment',
+    'Receipt',
+  ];
 
   String? _clientId;
   String _invoiceDateNameFieldKey =
       FrappeConfig.clientInvoiceDateEntryNameField;
+  List<TransactionCategory> _transactionCategories = [];
+  String _selectedTransactionType = 'Income';
+  String? _selectedTransactionCategoryId;
   bool _loadingClient = false;
   bool _loadingList = false;
   bool _loadingInvoice = false;
@@ -103,6 +113,13 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
     try {
       _invoiceDateNameFieldKey = await _invoiceService
           .resolveInvoiceDateNameFieldKey();
+      _transactionCategories = await _invoiceService
+          .loadTransactionCategories();
+      if (_transactionCategories.isNotEmpty &&
+          (_selectedTransactionCategoryId == null ||
+              _selectedTransactionCategoryId!.isEmpty)) {
+        _selectedTransactionCategoryId = _transactionCategories.first.id;
+      }
       final authState = context.read<AuthBloc>().state;
       final user = authState is Authenticated ? authState.user : null;
       final email = user?.email ?? '';
@@ -212,6 +229,10 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
     _paymentMethodController.clear();
     _paymentEmailController.clear();
     _vatAmountController.text = '0';
+    _selectedTransactionType = 'Income';
+    _selectedTransactionCategoryId = _transactionCategories.isNotEmpty
+        ? _transactionCategories.first.id
+        : null;
 
     for (final line in _serviceForms) {
       line.dispose();
@@ -330,6 +351,13 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
       if (_clientId == null || _clientId!.isEmpty) return;
     }
 
+    if (_transactionCategories.isNotEmpty &&
+        (_selectedTransactionCategoryId == null ||
+            _selectedTransactionCategoryId!.isEmpty)) {
+      _showSnack('Please select transaction category.');
+      return;
+    }
+
     setState(() => _saving = true);
 
     try {
@@ -384,11 +412,39 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
       if (_isEditMode && _editingDocName != null) {
         await _invoiceService.updateInvoice(_editingDocName!, payload);
       } else {
-        await _invoiceService.createInvoice(payload);
+        Object? invoiceError;
+        Object? transactionError;
+
+        await Future.wait([
+          _invoiceService
+              .createInvoice(payload)
+              .catchError((error) => invoiceError = error),
+          _invoiceService
+              .createTransactionForInvoice(
+                clientId: _clientId!,
+                amount: _grandTotal,
+                postingDate: _invoiceDateController.text.trim(),
+                invoiceNumber: _invoiceNumberController.text.trim(),
+                transactionType: _selectedTransactionType,
+                transactionCategoryId: _selectedTransactionCategoryId,
+              )
+              .catchError((error) => transactionError = error),
+        ]);
+
+        if (invoiceError != null) {
+          throw Exception(invoiceError.toString());
+        }
+
+        if (transactionError != null) {
+          _showSnack(
+            'Invoice created, but client transaction was not created.',
+          );
+        }
       }
 
       await _loadInvoices();
       if (!mounted) return;
+
       _showSnack(_isEditMode ? 'Invoice updated.' : 'Invoice created.');
       _backToList();
     } catch (e) {
@@ -514,6 +570,17 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
                 serviceForms: _serviceForms,
                 subtotal: _subtotal,
                 total: _grandTotal,
+                transactionTypes: _transactionTypes,
+                selectedTransactionType: _selectedTransactionType,
+                onTransactionTypeChanged: (value) {
+                  if (value == null) return;
+                  setState(() => _selectedTransactionType = value);
+                },
+                transactionCategories: _transactionCategories,
+                selectedTransactionCategoryId: _selectedTransactionCategoryId,
+                onTransactionCategoryChanged: (value) {
+                  setState(() => _selectedTransactionCategoryId = value);
+                },
                 onPickInvoiceDate: () => _pickDate(_invoiceDateController),
                 onPickDueDate: () => _pickDate(_dueDateController),
                 onAddServiceLine: _addServiceRow,

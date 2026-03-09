@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import '../../model/user.dart';
 import '../../../core/config/frappe_config.dart';
 import '../../../core/services/frappe_client.dart';
@@ -24,6 +25,7 @@ abstract class AuthRemoteDataSource {
     String state,
     String country,
     String? companyName,
+    String? companyLogoPath,
     String? companyRegistrationNumber,
     String? vatNumber,
   );
@@ -87,6 +89,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     String state,
     String country,
     String? companyName,
+    String? companyLogoPath,
     String? companyRegistrationNumber,
     String? vatNumber,
   ) async {
@@ -111,6 +114,20 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       'password': password,
     };
 
+    String companyLogoUrl = '';
+    if (companyLogoPath != null && companyLogoPath.trim().isNotEmpty) {
+      final uploadResponse = await _client.uploadFile(
+        file: File(companyLogoPath),
+      );
+      final uploadedFromRoot = uploadResponse['file_url']?.toString();
+      final uploadedFromMessage =
+          (uploadResponse['message'] is Map<String, dynamic>)
+          ? (uploadResponse['message'] as Map<String, dynamic>)['file_url']
+                ?.toString()
+          : null;
+      companyLogoUrl = (uploadedFromRoot ?? uploadedFromMessage ?? '').trim();
+    }
+
     final clientPayload = <String, dynamic>{
       'business_type': businessType,
       'status': businessStatus,
@@ -122,6 +139,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       'city': city,
       'state': state,
       FrappeConfig.clientCompanyNameField: companyName?.trim() ?? '',
+      FrappeConfig.clientCompanyLogoField: companyLogoUrl,
       FrappeConfig.clientCompanyRegistrationNumberField:
           companyRegistrationNumber?.trim() ?? '',
       FrappeConfig.clientVatNumberField: vatNumber?.trim() ?? '',

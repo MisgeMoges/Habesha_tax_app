@@ -67,6 +67,7 @@ class AuthRepositoryImpl implements AuthRepository {
     String state,
     String country,
     String? companyName,
+    String? companyLogoPath,
     String? companyRegistrationNumber,
     String? vatNumber,
   ) async {
@@ -90,6 +91,7 @@ class AuthRepositoryImpl implements AuthRepository {
           state,
           country,
           companyName,
+          companyLogoPath,
           companyRegistrationNumber,
           vatNumber,
         );

@@ -31,4 +31,26 @@ class TargetedNotificationService {
       body: {'data': payload},
     );
   }
+
+  static Future<void> sendUserNotification({
+    required String recipientUserId,
+    required String title,
+    required String body,
+    String? type,
+    Map<String, dynamic>? data,
+  }) async {
+    final client = FrappeClient();
+    final payload = <String, dynamic>{
+      FrappeConfig.notificationRecipientField: recipientUserId,
+      FrappeConfig.notificationTitleField: title,
+      FrappeConfig.notificationBodyField: body,
+      FrappeConfig.notificationTypeField: type ?? 'Alert',
+      FrappeConfig.notificationDataField: jsonEncode(data ?? {}),
+    };
+
+    await client.post(
+      '/api/resource/${FrappeConfig.notificationDoctype}',
+      body: {'data': payload},
+    );
+  }
 }

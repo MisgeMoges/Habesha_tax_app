@@ -1,12 +1,21 @@
-import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart';
 import '../../../core/config/frappe_config.dart';
 import '../../../core/services/frappe_client.dart';
 import '../../../core/utils/user_friendly_error.dart';
+import '../../auth/bloc/auth_bloc.dart';
+import '../../auth/bloc/auth_state.dart';
 
 class AdminChatScreen extends StatefulWidget {
   const AdminChatScreen({super.key});
+
+  static final ValueNotifier<int> unreadCountNotifier = ValueNotifier<int>(0);
 
   @override
   State<AdminChatScreen> createState() => _AdminChatScreenState();
@@ -25,6 +34,12 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
   bool _loadingClients = false;
   bool _loadingMessages = false;
   String? _errorMessage;
+  Timer? _pollTimer;
+
+  String? _pendingAttachmentUrl;
+  String? _pendingAttachmentName;
+  final Map<String, DateTime> _lastSeenBySender = {};
+  Map<String, int> _unreadBySender = {};
 
   List<Map<String, dynamic>> clients = [];
   final Map<String, List<Map<String, dynamic>>> chatHistories = {};
@@ -32,7 +47,36 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
   @override
   void initState() {
     super.initState();
+    final authState = context.read<AuthBloc>().state;
+    if (authState is Authenticated) {
+      _currentUserId = authState.user.email.trim();
+    }
     _loadCurrentUserAndClients();
+    _startPolling();
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    _messageController.dispose();
+    _searchController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _startPolling() {
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      _pollUnreadAndOpenConversation();
+    });
+  }
+
+  Future<void> _pollUnreadAndOpenConversation() async {
+    if (_currentUserId.isEmpty) return;
+    await _refreshUnreadCount();
+    if (selectedClientId.isNotEmpty) {
+      await _loadMessages(selectedClientId, showLoader: false);
+    }
   }
 
   Future<void> _loadCurrentUserAndClients() async {
@@ -41,10 +85,9 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
       _errorMessage = null;
     });
     try {
-      final currentUserResponse = await _client.get(
-        '/api/method/frappe.auth.get_logged_user',
-      );
-      _currentUserId = currentUserResponse['message']?.toString() ?? '';
+      if (_currentUserId.isEmpty) {
+        throw Exception('User not authenticated');
+      }
 
       final response = await _client.get(
         '/api/resource/${FrappeConfig.userDoctype}',
@@ -78,6 +121,7 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
             .where((client) => client['id'] != _currentUserId)
             .toList();
       }
+      await _refreshUnreadCount();
     } catch (e) {
       _errorMessage = UserFriendlyError.message(
         e,
@@ -92,13 +136,37 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
 
   void _handleSend() {
     final text = _messageController.text.trim();
-    if (text.isEmpty || selectedClientId.isEmpty) return;
-    _sendMessage(text);
+    if ((text.isEmpty && _pendingAttachmentUrl == null) ||
+        selectedClientId.isEmpty) {
+      return;
+    }
+
+    final displayText = _pendingAttachmentName == null
+        ? text
+        : text.isEmpty
+        ? '📎 $_pendingAttachmentName'
+        : '$text\n📎 $_pendingAttachmentName';
+    final payloadText = _pendingAttachmentUrl == null
+        ? text
+        : text.isEmpty
+        ? 'Attachment: $_pendingAttachmentUrl'
+        : '$text\nAttachment: $_pendingAttachmentUrl';
+    _sendMessage(displayText: displayText, payloadText: payloadText);
   }
 
-  Future<void> _sendMessage(String text) async {
+  Future<void> _sendMessage({
+    required String displayText,
+    required String payloadText,
+  }) async {
+    if (_currentUserId.isEmpty) {
+      setState(() {
+        _errorMessage = 'User not authenticated.';
+      });
+      return;
+    }
+
     final message = {
-      'text': text,
+      'text': displayText,
       'isSentByUser': true,
       'timestamp': DateTime.now(),
     };
@@ -108,6 +176,12 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
     });
 
     _messageController.clear();
+    final attachmentUrl = _pendingAttachmentUrl;
+    final attachmentName = _pendingAttachmentName;
+    setState(() {
+      _pendingAttachmentUrl = null;
+      _pendingAttachmentName = null;
+    });
 
     try {
       await _client.post(
@@ -116,13 +190,20 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
           'data': {
             FrappeConfig.chatMessageSenderField: _currentUserId,
             FrappeConfig.chatMessageReceiverField: selectedClientId,
-            FrappeConfig.chatMessageBodyField: text,
+            FrappeConfig.chatMessageBodyField: payloadText,
             FrappeConfig.chatMessageTimestampField: DateTime.now()
                 .toIso8601String(),
           },
         },
       );
+      await _refreshUnreadCount();
     } catch (e) {
+      if (attachmentUrl != null && attachmentName != null) {
+        setState(() {
+          _pendingAttachmentUrl = attachmentUrl;
+          _pendingAttachmentName = attachmentName;
+        });
+      }
       setState(() {
         _errorMessage = UserFriendlyError.message(
           e,
@@ -142,11 +223,13 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
     });
   }
 
-  Future<void> _loadMessages(String clientId) async {
-    setState(() {
-      _loadingMessages = true;
-      _errorMessage = null;
-    });
+  Future<void> _loadMessages(String clientId, {bool showLoader = true}) async {
+    if (showLoader) {
+      setState(() {
+        _loadingMessages = true;
+        _errorMessage = null;
+      });
+    }
     try {
       final response = await _client.get(
         '/api/resource/${FrappeConfig.chatMessageDoctype}',
@@ -191,6 +274,8 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
                 DateTime.now(),
           };
         }).toList();
+        _markConversationAsRead(clientId);
+        await _refreshUnreadCount();
       }
     } catch (e) {
       _errorMessage = UserFriendlyError.message(
@@ -198,10 +283,164 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
         fallback: 'Unable to load messages right now.',
       );
     } finally {
-      setState(() {
-        _loadingMessages = false;
-      });
+      if (showLoader) {
+        setState(() {
+          _loadingMessages = false;
+        });
+      }
     }
+  }
+
+  void _markConversationAsRead(String clientId) {
+    final history = chatHistories[clientId] ?? const [];
+    DateTime? latestIncoming;
+    for (final msg in history) {
+      if (msg['isSentByUser'] == false && msg['timestamp'] is DateTime) {
+        final ts = msg['timestamp'] as DateTime;
+        if (latestIncoming == null || ts.isAfter(latestIncoming)) {
+          latestIncoming = ts;
+        }
+      }
+    }
+    if (latestIncoming != null) {
+      _lastSeenBySender[clientId] = latestIncoming;
+    }
+  }
+
+  Future<void> _refreshUnreadCount() async {
+    try {
+      final response = await _client.get(
+        '/api/resource/${FrappeConfig.chatMessageDoctype}',
+        queryParameters: {
+          'filters': jsonEncode([
+            [FrappeConfig.chatMessageReceiverField, '=', _currentUserId],
+          ]),
+          'fields': jsonEncode([
+            FrappeConfig.chatMessageSenderField,
+            FrappeConfig.chatMessageTimestampField,
+          ]),
+          'order_by': '${FrappeConfig.chatMessageTimestampField} desc',
+          'limit_page_length': '500',
+        },
+      );
+
+      final data = response['data'];
+      if (data is! List) return;
+
+      var unread = 0;
+      final unreadBySender = <String, int>{};
+      for (final row in data) {
+        final item = Map<String, dynamic>.from(row as Map);
+        final sender =
+            item[FrappeConfig.chatMessageSenderField]?.toString() ?? '';
+        if (sender.isEmpty || sender == _currentUserId) continue;
+        final ts =
+            DateTime.tryParse(
+              item[FrappeConfig.chatMessageTimestampField]?.toString() ?? '',
+            ) ??
+            DateTime.now();
+        final seenAt =
+            _lastSeenBySender[sender] ?? DateTime.fromMillisecondsSinceEpoch(0);
+        if (ts.isAfter(seenAt)) {
+          unread += 1;
+          unreadBySender[sender] = (unreadBySender[sender] ?? 0) + 1;
+        }
+      }
+
+      AdminChatScreen.unreadCountNotifier.value = unread;
+      if (mounted) {
+        setState(() {
+          _unreadBySender = unreadBySender;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Widget _buildClientAvatar(Map<String, dynamic> client, int unreadCount) {
+    final avatar = CircleAvatar(
+      backgroundColor: Colors.deepPurple[100],
+      backgroundImage:
+          (client['avatar'] != null && client['avatar'].toString().isNotEmpty)
+          ? NetworkImage(client['avatar'])
+          : null,
+      child: (client['avatar'] == null || client['avatar'].toString().isEmpty)
+          ? Text(
+              client['name'].toString().isNotEmpty
+                  ? client['name'].toString()[0].toUpperCase()
+                  : '?',
+            )
+          : null,
+    );
+
+    if (unreadCount <= 0) return avatar;
+
+    final badgeText = unreadCount > 99 ? '99+' : '$unreadCount';
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        avatar,
+        Positioned(
+          right: -2,
+          top: -2,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.red,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            constraints: const BoxConstraints(minWidth: 18, minHeight: 16),
+            child: Text(
+              badgeText,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _pickAttachment() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(type: FileType.any);
+      final path = result?.files.single.path;
+      if (path == null || path.isEmpty) return;
+
+      final file = File(path);
+      final response = await _client.uploadFile(file: file);
+      final fileUrl =
+          response['message']?['file_url']?.toString() ??
+          response['file_url']?.toString();
+
+      if (fileUrl == null || fileUrl.trim().isEmpty) {
+        _showSnack('Unable to attach file right now.');
+        return;
+      }
+
+      setState(() {
+        _pendingAttachmentUrl = fileUrl;
+        _pendingAttachmentName =
+            result?.files.single.name ?? file.path.split('/').last;
+      });
+    } catch (e) {
+      _showSnack(
+        UserFriendlyError.message(
+          e,
+          fallback: 'Unable to attach file right now.',
+        ),
+      );
+    }
+  }
+
+  void _showSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   String _formatTimestamp(DateTime time) {
@@ -276,6 +515,8 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
       itemCount: filtered.length,
       itemBuilder: (context, index) {
         final client = filtered[index];
+        final clientId = client['id']?.toString() ?? '';
+        final unreadCount = _unreadBySender[clientId] ?? 0;
         final chat = chatHistories[client['id']];
         final lastMessage = chat != null && chat.isNotEmpty
             ? chat.last['text']
@@ -285,23 +526,7 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
             : '';
 
         return ListTile(
-          leading: CircleAvatar(
-            backgroundColor: Colors.deepPurple[100],
-            backgroundImage:
-                (client['avatar'] != null &&
-                    client['avatar'].toString().isNotEmpty)
-                ? NetworkImage(client['avatar'])
-                : null,
-            child:
-                (client['avatar'] == null ||
-                    client['avatar'].toString().isEmpty)
-                ? Text(
-                    client['name'].toString().isNotEmpty
-                        ? client['name'].toString()[0].toUpperCase()
-                        : '?',
-                  )
-                : null,
-          ),
+          leading: _buildClientAvatar(client, unreadCount),
           title: Text(
             client['name'].toString().isEmpty
                 ? client['email']
@@ -390,30 +615,68 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
       color: Colors.white,
       child: Row(
         children: [
+          IconButton(
+            tooltip: 'Attach file',
+            onPressed: selectedClientId.isEmpty ? null : _pickAttachment,
+            icon: const Icon(Icons.attach_file),
+          ),
           Expanded(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.grey[200],
-                borderRadius: BorderRadius.circular(25),
-              ),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(
-                  minHeight: 40,
-                  maxHeight: 120,
-                ),
-                child: Scrollbar(
-                  child: TextField(
-                    controller: _messageController,
-                    maxLines: null,
-                    decoration: const InputDecoration(
-                      hintText: 'Type your message...',
-                      border: InputBorder.none,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (_pendingAttachmentName != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6, left: 6),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '📎 $_pendingAttachmentName',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
+                        IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          iconSize: 18,
+                          onPressed: () {
+                            setState(() {
+                              _pendingAttachmentUrl = null;
+                              _pendingAttachmentName = null;
+                            });
+                          },
+                          icon: const Icon(Icons.close),
+                        ),
+                      ],
                     ),
-                    style: const TextStyle(fontSize: 16),
+                  ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(25),
+                  ),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      minHeight: 40,
+                      maxHeight: 120,
+                    ),
+                    child: Scrollbar(
+                      child: TextField(
+                        controller: _messageController,
+                        maxLines: null,
+                        decoration: const InputDecoration(
+                          hintText: 'Type your message...',
+                          border: InputBorder.none,
+                        ),
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
           ),
           const SizedBox(width: 8),

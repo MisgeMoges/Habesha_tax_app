@@ -12,7 +12,7 @@ import 'package:habesha_tax_app/features/auth/bloc/auth_state.dart';
 import 'package:habesha_tax_app/features/transaction/view/add_transaction_screen.dart';
 import 'package:habesha_tax_app/features/transaction/view/transaction_detail_screen.dart';
 import 'package:habesha_tax_app/core/utils/user_friendly_error.dart';
-import '../notifications/notifications_screen.dart';
+import '../notifications/notification_bell_button.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -141,17 +141,7 @@ class _HomeScreenState extends State<HomeScreen> {
           padding: EdgeInsets.all(10),
           child: ClientProfileLeading(),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_none, color: Colors.black),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => NotificationScreen()),
-              );
-            },
-          ),
-        ],
+        actions: [const NotificationBellButton()],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),

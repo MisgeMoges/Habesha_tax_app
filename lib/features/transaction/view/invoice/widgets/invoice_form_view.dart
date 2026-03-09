@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../data/model/transaction_category.dart';
 import '../invoice_models.dart';
 
 class InvoiceFormView extends StatelessWidget {
@@ -25,6 +26,12 @@ class InvoiceFormView extends StatelessWidget {
     required this.serviceForms,
     required this.subtotal,
     required this.total,
+    required this.transactionTypes,
+    required this.selectedTransactionType,
+    required this.onTransactionTypeChanged,
+    required this.transactionCategories,
+    required this.selectedTransactionCategoryId,
+    required this.onTransactionCategoryChanged,
     required this.onPickInvoiceDate,
     required this.onPickDueDate,
     required this.onAddServiceLine,
@@ -54,6 +61,12 @@ class InvoiceFormView extends StatelessWidget {
   final List<InvoiceServiceLineForm> serviceForms;
   final double subtotal;
   final double total;
+  final List<String> transactionTypes;
+  final String selectedTransactionType;
+  final ValueChanged<String?> onTransactionTypeChanged;
+  final List<TransactionCategory> transactionCategories;
+  final String? selectedTransactionCategoryId;
+  final ValueChanged<String?> onTransactionCategoryChanged;
 
   final VoidCallback onPickInvoiceDate;
   final VoidCallback onPickDueDate;
@@ -126,6 +139,68 @@ class InvoiceFormView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
+            _sectionCard(
+              title: 'Transaction Mapping',
+              child: Column(
+                children: [
+                  DropdownButtonFormField<String>(
+                    value: selectedTransactionType,
+                    decoration: const InputDecoration(
+                      labelText: 'Transaction Type *',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: transactionTypes
+                        .map(
+                          (type) => DropdownMenuItem<String>(
+                            value: type,
+                            child: Text(type),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: onTransactionTypeChanged,
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Select transaction type';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<String>(
+                    value: transactionCategories.isEmpty
+                        ? null
+                        : selectedTransactionCategoryId,
+                    decoration: const InputDecoration(
+                      labelText: 'Transaction Category *',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: transactionCategories
+                        .map(
+                          (item) => DropdownMenuItem<String>(
+                            value: item.id,
+                            child: Text(item.name),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: transactionCategories.isEmpty
+                        ? null
+                        : onTransactionCategoryChanged,
+                    validator: (_) {
+                      if (transactionCategories.isEmpty) {
+                        return 'No transaction categories available';
+                      }
+                      if ((selectedTransactionCategoryId ?? '')
+                          .trim()
+                          .isEmpty) {
+                        return 'Select transaction category';
+                      }
+                      return null;
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
             _sectionCard(
               title: 'Services Details',
               trailing: TextButton.icon(
@@ -202,7 +277,8 @@ class InvoiceFormView extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
