@@ -40,7 +40,7 @@ class _SplashScreenState extends State<SplashScreen> {
             children: [
               ClipOval(
                 child: Image.asset(
-                  'assets/images/tax-2.png',
+                  'assets/images/logo1.png',
                   width: 150,
                   height: 150,
                   fit: BoxFit.cover,
@@ -49,7 +49,7 @@ class _SplashScreenState extends State<SplashScreen> {
               // Icon(Icons.church, size: 100, color: Colors.deepPurple),
               const SizedBox(height: 20),
               const Text(
-                "Habesha Tax App",
+                "Habesha Tax",
                 style: TextStyle(color: AppColor.appColor, fontSize: 24),
               ),
             ],

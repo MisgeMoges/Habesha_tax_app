@@ -1,5 +1,3 @@
-import 'package:equatable/equatable.dart';
-
 class Failure {
   final String? message;
   const Failure([this.message]);
@@ -10,7 +8,8 @@ class ServerFailure extends Failure {
 }
 
 class NetworkFailure extends Failure {
-  const NetworkFailure([super.message]);
+  const NetworkFailure([String? message])
+    : super(message ?? 'No internet or local network connection.');
 }
 
 class CacheFailure extends Failure {

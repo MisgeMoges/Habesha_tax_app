@@ -33,18 +33,19 @@ class AuthRepositoryImpl implements AuthRepository {
     String email,
     String password,
   ) async {
-    if (await networkInfo.isConnected) {
-      try {
-        final user = await remoteDataSource.signInWithEmailAndPassword(
-          email,
-          password,
+    try {
+      final user = await remoteDataSource.signInWithEmailAndPassword(
+        email,
+        password,
+      );
+      return Right(user);
+    } catch (e) {
+      if (!await networkInfo.isConnected) {
+        return const Left(
+          NetworkFailure('No internet or local network connection.'),
         );
-        return Right(user);
-      } catch (e) {
-        return Left(AuthFailure(e.toString()));
       }
-    } else {
-      return const Left(NetworkFailure());
+      return Left(AuthFailure(e.toString()));
     }
   }
 
@@ -71,36 +72,37 @@ class AuthRepositoryImpl implements AuthRepository {
     String? companyRegistrationNumber,
     String? vatNumber,
   ) async {
-    if (await networkInfo.isConnected) {
-      try {
-        final user = await remoteDataSource.createUserWithEmailAndPassword(
-          email,
-          password,
-          firstName,
-          lastName,
-          mobileNumber,
-          userCategory,
-          businessType,
-          businessStatus,
-          tinNumber,
-          taxCategory,
-          addressLine1,
-          addressLine2,
-          postalCode,
-          city,
-          state,
-          country,
-          companyName,
-          companyLogoPath,
-          companyRegistrationNumber,
-          vatNumber,
+    try {
+      final user = await remoteDataSource.createUserWithEmailAndPassword(
+        email,
+        password,
+        firstName,
+        lastName,
+        mobileNumber,
+        userCategory,
+        businessType,
+        businessStatus,
+        tinNumber,
+        taxCategory,
+        addressLine1,
+        addressLine2,
+        postalCode,
+        city,
+        state,
+        country,
+        companyName,
+        companyLogoPath,
+        companyRegistrationNumber,
+        vatNumber,
+      );
+      return Right(user);
+    } catch (e) {
+      if (!await networkInfo.isConnected) {
+        return const Left(
+          NetworkFailure('No internet or local network connection.'),
         );
-        return Right(user);
-      } catch (e) {
-        return Left(AuthFailure(e.toString()));
       }
-    } else {
-      return const Left(NetworkFailure());
+      return Left(AuthFailure(e.toString()));
     }
   }
 
@@ -148,15 +150,16 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<Either<Failure, void>> resetPassword(String email) async {
-    if (await networkInfo.isConnected) {
-      try {
-        await remoteDataSource.resetPassword(email);
-        return const Right(null);
-      } catch (e) {
-        return Left(AuthFailure(e.toString()));
+    try {
+      await remoteDataSource.resetPassword(email);
+      return const Right(null);
+    } catch (e) {
+      if (!await networkInfo.isConnected) {
+        return const Left(
+          NetworkFailure('No internet or local network connection.'),
+        );
       }
-    } else {
-      return const Left(NetworkFailure());
+      return Left(AuthFailure(e.toString()));
     }
   }
 
@@ -167,20 +170,21 @@ class AuthRepositoryImpl implements AuthRepository {
     String? oldPassword,
     String? resetKey,
   }) async {
-    if (await networkInfo.isConnected) {
-      try {
-        await remoteDataSource.updatePassword(
-          email: email,
-          newPassword: newPassword,
-          oldPassword: oldPassword,
-          resetKey: resetKey,
+    try {
+      await remoteDataSource.updatePassword(
+        email: email,
+        newPassword: newPassword,
+        oldPassword: oldPassword,
+        resetKey: resetKey,
+      );
+      return const Right(null);
+    } catch (e) {
+      if (!await networkInfo.isConnected) {
+        return const Left(
+          NetworkFailure('No internet or local network connection.'),
         );
-        return const Right(null);
-      } catch (e) {
-        return Left(AuthFailure(e.toString()));
       }
-    } else {
-      return const Left(NetworkFailure());
+      return Left(AuthFailure(e.toString()));
     }
   }
 

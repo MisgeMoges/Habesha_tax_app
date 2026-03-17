@@ -3,7 +3,7 @@ class FrappeConfig {
 
   static const String baseUrl = String.fromEnvironment(
     'FRAPPE_BASE_URL',
-    defaultValue: 'http://10.174.8.118:8000',
+    defaultValue: 'http://10.138.15.118:8000',
     // defaultValue: 'http://192.168.0.144:8000',
   );
 
@@ -47,6 +47,13 @@ class FrappeConfig {
   static const String userCategoryField = 'user_category';
   static const String userMobileNoField = 'mobile_no';
 
+  static const String bookingClientField = 'client';
+  static const String bookingDateField = 'booking_date';
+  static const String bookingTimeField = 'time';
+  static const String bookingFullNameField = 'full_name';
+  static const String bookingStatusField = 'status';
+  static const String bookingMessageField = 'message';
+  static const String bookingAdminNoteField = 'admin_notes';
   // Client registration fields
   static const String clientBusinessTypeField = 'business_type';
   static const String clientStatusField = 'status';
@@ -125,6 +132,8 @@ class FrappeConfig {
   static const String clientInvoiceTotalAmountField = 'total_amount';
 
   // Account details fields
+
+  static const String bookingDoctype = 'Client Booking';
   static const String clientInvoiceBankNameField = 'bank_name';
   static const String clientInvoiceBankAccountNameField = 'account_name';
   static const String clientInvoiceAccountNumberField = 'account_number';
@@ -168,6 +177,10 @@ class FrappeConfig {
   static const String chatMessageReceiverField = 'receiver';
   static const String chatMessageBodyField = 'message';
   static const String chatMessageTimestampField = 'timestamp';
+
+  // Realtime socket configuration
+  static const String socketPath = '/socket.io';
+  static const String chatRealtimeEvent = 'new_chat_message';
 
   // Notifications configuration
   static const String notificationDoctype = 'Notification Log';

@@ -8,6 +8,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import '../../../core/config/frappe_config.dart';
 import '../../../core/services/frappe_client.dart';
+import '../../../core/services/frappe_realtime_service.dart';
 import '../../../core/utils/user_friendly_error.dart';
 import '../../auth/bloc/auth_bloc.dart';
 import '../../auth/bloc/auth_state.dart';
@@ -26,6 +27,7 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FrappeClient _client = FrappeClient();
+  final FrappeRealtimeService _realtimeService = FrappeRealtimeService();
 
   bool isSearching = false;
   String selectedClientId = '';
@@ -35,11 +37,13 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
   bool _loadingMessages = false;
   String? _errorMessage;
   Timer? _pollTimer;
+  StreamSubscription<Map<String, dynamic>>? _realtimeSubscription;
 
   String? _pendingAttachmentUrl;
   String? _pendingAttachmentName;
   final Map<String, DateTime> _lastSeenBySender = {};
   Map<String, int> _unreadBySender = {};
+  final Map<String, Map<String, dynamic>> _latestMessageByClient = {};
 
   List<Map<String, dynamic>> clients = [];
   final Map<String, List<Map<String, dynamic>>> chatHistories = {};
@@ -51,6 +55,7 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
     if (authState is Authenticated) {
       _currentUserId = authState.user.email.trim();
     }
+    _connectRealtime();
     _loadCurrentUserAndClients();
     _startPolling();
   }
@@ -58,10 +63,23 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
   @override
   void dispose() {
     _pollTimer?.cancel();
+    _realtimeSubscription?.cancel();
+    _realtimeService.dispose();
     _messageController.dispose();
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _connectRealtime() {
+    if (_currentUserId.isEmpty) return;
+    if (_realtimeService.isConnected) return;
+
+    _realtimeService.connect(userEmail: _currentUserId);
+    _realtimeSubscription?.cancel();
+    _realtimeSubscription = _realtimeService.events.listen((_) {
+      _pollUnreadAndOpenConversation();
+    });
   }
 
   void _startPolling() {
@@ -88,6 +106,22 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
       if (_currentUserId.isEmpty) {
         throw Exception('User not authenticated');
       }
+      // final response = await _client.get(
+      //   '/api/method/habesha_tax.habesha_tax.doctype.chat_message.chat_message.get_clients',
+      // );
+
+      // final data = response['message'];
+
+      // if (data is List) {
+      //   clients = data.map((item) {
+      //     return {
+      //       "id": item["client"],
+      //       "name": item["client"],
+      //       "email": item["client"],
+      //       "avatar": null,
+      //     };
+      //   }).toList();
+      // }
 
       final response = await _client.get(
         '/api/resource/${FrappeConfig.userDoctype}',
@@ -121,6 +155,7 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
             .where((client) => client['id'] != _currentUserId)
             .toList();
       }
+
       await _refreshUnreadCount();
     } catch (e) {
       _errorMessage = UserFriendlyError.message(
@@ -173,6 +208,10 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
     setState(() {
       chatHistories.putIfAbsent(selectedClientId, () => []);
       chatHistories[selectedClientId]!.add(message);
+      _latestMessageByClient[selectedClientId] = {
+        'text': displayText,
+        'timestamp': message['timestamp'],
+      };
     });
 
     _messageController.clear();
@@ -185,17 +224,25 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
 
     try {
       await _client.post(
-        '/api/resource/${FrappeConfig.chatMessageDoctype}',
+        '/api/method/habesha_tax.habesha_tax.doctype.chat_message.chat_message.send_message',
         body: {
-          'data': {
-            FrappeConfig.chatMessageSenderField: _currentUserId,
-            FrappeConfig.chatMessageReceiverField: selectedClientId,
-            FrappeConfig.chatMessageBodyField: payloadText,
-            FrappeConfig.chatMessageTimestampField: DateTime.now()
-                .toIso8601String(),
-          },
+          "receiver": selectedClientId,
+          "message": payloadText,
+          "sender": _currentUserId,
         },
       );
+      // await _client.post(
+      //   '/api/resource/${FrappeConfig.chatMessageDoctype}',
+      //   body: {
+      //     'data': {
+      //       FrappeConfig.chatMessageSenderField: _currentUserId,
+      //       FrappeConfig.chatMessageReceiverField: selectedClientId,
+      //       FrappeConfig.chatMessageBodyField: payloadText,
+      //       FrappeConfig.chatMessageTimestampField: DateTime.now()
+      //           .toIso8601String(),
+      //     },
+      //   },
+      // );
       await _refreshUnreadCount();
     } catch (e) {
       if (attachmentUrl != null && attachmentName != null) {
@@ -231,6 +278,27 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
       });
     }
     try {
+      // final response = await _client.get(
+      //   '/api/method/habesha_tax.habesha_tax.doctype.chat_message.chat_message.get_messages',
+      //   queryParameters: {
+      //     "client": "misganmoges@gmail.com",
+      //     "user": _currentUserId,
+      //   },
+      // );
+
+      // final data = response['message'];
+
+      // if (data is List) {
+      //   chatHistories[clientId] = data.map((item) {
+      //     final sender = item['sender']?.toString() ?? '';
+
+      //     return {
+      //       'text': item['message'] ?? '',
+      //       'isSentByUser': sender == _currentUserId,
+      //       'timestamp':
+      //           DateTime.tryParse(item['timestamp'] ?? '') ?? DateTime.now(),
+      //     };
+      //   }).toList();
       final response = await _client.get(
         '/api/resource/${FrappeConfig.chatMessageDoctype}',
         queryParameters: {
@@ -274,6 +342,14 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
                 DateTime.now(),
           };
         }).toList();
+        final history = chatHistories[clientId];
+        if (history != null && history.isNotEmpty) {
+          final lastMessage = history.last;
+          _latestMessageByClient[clientId] = {
+            'text': lastMessage['text']?.toString() ?? '',
+            'timestamp': lastMessage['timestamp'],
+          };
+        }
         _markConversationAsRead(clientId);
         await _refreshUnreadCount();
       }
@@ -309,7 +385,7 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
 
   Future<void> _refreshUnreadCount() async {
     try {
-      final response = await _client.get(
+      final unreadResponse = await _client.get(
         '/api/resource/${FrappeConfig.chatMessageDoctype}',
         queryParameters: {
           'filters': jsonEncode([
@@ -324,8 +400,51 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
         },
       );
 
-      final data = response['data'];
+      final previewResponse = await _client.get(
+        '/api/resource/${FrappeConfig.chatMessageDoctype}',
+        queryParameters: {
+          'or_filters': jsonEncode([
+            [FrappeConfig.chatMessageSenderField, '=', _currentUserId],
+            [FrappeConfig.chatMessageReceiverField, '=', _currentUserId],
+          ]),
+          'fields': jsonEncode([
+            FrappeConfig.chatMessageSenderField,
+            FrappeConfig.chatMessageReceiverField,
+            FrappeConfig.chatMessageBodyField,
+            FrappeConfig.chatMessageTimestampField,
+          ]),
+          'order_by': '${FrappeConfig.chatMessageTimestampField} desc',
+          'limit_page_length': '500',
+        },
+      );
+
+      final data = unreadResponse['data'];
       if (data is! List) return;
+
+      final previewData = previewResponse['data'];
+      final latestMessageByClient = <String, Map<String, dynamic>>{};
+      if (previewData is List) {
+        for (final row in previewData) {
+          final item = Map<String, dynamic>.from(row as Map);
+          final sender =
+              item[FrappeConfig.chatMessageSenderField]?.toString() ?? '';
+          final receiver =
+              item[FrappeConfig.chatMessageReceiverField]?.toString() ?? '';
+          final partnerId = sender == _currentUserId ? receiver : sender;
+          if (partnerId.isEmpty || partnerId == _currentUserId) continue;
+          if (latestMessageByClient.containsKey(partnerId)) continue;
+
+          latestMessageByClient[partnerId] = {
+            'text': item[FrappeConfig.chatMessageBodyField]?.toString() ?? '',
+            'timestamp':
+                DateTime.tryParse(
+                  item[FrappeConfig.chatMessageTimestampField]?.toString() ??
+                      '',
+                ) ??
+                DateTime.now(),
+          };
+        }
+      }
 
       var unread = 0;
       final unreadBySender = <String, int>{};
@@ -351,6 +470,9 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
       if (mounted) {
         setState(() {
           _unreadBySender = unreadBySender;
+          _latestMessageByClient
+            ..clear()
+            ..addAll(latestMessageByClient);
         });
       }
     } catch (_) {}
@@ -447,6 +569,73 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
     return DateFormat('hh:mm a').format(time);
   }
 
+  String _formatConversationTimestamp(DateTime time) {
+    final now = DateTime.now();
+    if (_isSameDay(now, time)) {
+      return _formatTimestamp(time);
+    }
+
+    final today = DateTime(now.year, now.month, now.day);
+    final target = DateTime(time.year, time.month, time.day);
+    final difference = today.difference(target).inDays;
+
+    if (difference == 1) {
+      return 'Yesterday';
+    }
+    if (difference < 7) {
+      return DateFormat('EEE').format(time);
+    }
+    return DateFormat('MMM d').format(time);
+  }
+
+  String _formatDayHeader(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final target = DateTime(date.year, date.month, date.day);
+    final difference = today.difference(target).inDays;
+
+    if (difference == 0) {
+      return 'Today';
+    }
+    if (difference == 1) {
+      return 'Yesterday';
+    }
+    return DateFormat('EEEE, MMM d, yyyy').format(date);
+  }
+
+  bool _isSameDay(DateTime first, DateTime second) {
+    return first.year == second.year &&
+        first.month == second.month &&
+        first.day == second.day;
+  }
+
+  Widget _buildDateSeparator(DateTime date) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        children: [
+          const Expanded(child: Divider(indent: 16, endIndent: 12)),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade200,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              _formatDayHeader(date),
+              style: TextStyle(
+                color: Colors.grey.shade700,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const Expanded(child: Divider(indent: 12, endIndent: 16)),
+        ],
+      ),
+    );
+  }
+
   Widget _buildMessage(Map<String, dynamic> msg) {
     final isUser = msg['isSentByUser'];
     final text = msg['text'];
@@ -495,6 +684,27 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
     );
   }
 
+  Widget _buildGroupedMessage(List<Map<String, dynamic>> messages, int index) {
+    final message = messages[index];
+    final timestamp = message['timestamp'];
+    final currentTimestamp = timestamp is DateTime ? timestamp : DateTime.now();
+    final previousTimestamp = index > 0
+        ? messages[index - 1]['timestamp']
+        : null;
+    final previousDate = previousTimestamp is DateTime
+        ? previousTimestamp
+        : null;
+    final shouldShowDateSeparator =
+        previousDate == null || !_isSameDay(previousDate, currentTimestamp);
+
+    return Column(
+      children: [
+        if (shouldShowDateSeparator) _buildDateSeparator(currentTimestamp),
+        _buildMessage(message),
+      ],
+    );
+  }
+
   Widget _buildClientList() {
     final filtered = clients
         .where(
@@ -517,12 +727,11 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
         final client = filtered[index];
         final clientId = client['id']?.toString() ?? '';
         final unreadCount = _unreadBySender[clientId] ?? 0;
-        final chat = chatHistories[client['id']];
-        final lastMessage = chat != null && chat.isNotEmpty
-            ? chat.last['text']
-            : '';
-        final timestamp = chat != null && chat.isNotEmpty
-            ? _formatTimestamp(chat.last['timestamp'])
+        final latestMessage = _latestMessageByClient[clientId];
+        final lastMessage = latestMessage?['text']?.toString() ?? '';
+        final latestTimestamp = latestMessage?['timestamp'];
+        final timestamp = latestTimestamp is DateTime
+            ? _formatConversationTimestamp(latestTimestamp)
             : '';
 
         return ListTile(
@@ -697,9 +906,11 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final messages = selectedClientId.isNotEmpty
-        ? chatHistories[selectedClientId] ?? []
-        : [];
+    final List<Map<String, dynamic>> messages = selectedClientId.isNotEmpty
+        ? List<Map<String, dynamic>>.from(
+            chatHistories[selectedClientId] ?? const <Map<String, dynamic>>[],
+          )
+        : const <Map<String, dynamic>>[];
 
     return Scaffold(
       appBar: _buildAppBar(),
@@ -715,7 +926,7 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           itemCount: messages.length,
                           itemBuilder: (context, index) =>
-                              _buildMessage(messages[index]),
+                              _buildGroupedMessage(messages, index),
                         ),
                 ),
                 _buildMessageInput(),

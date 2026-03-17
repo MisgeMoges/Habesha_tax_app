@@ -9,6 +9,7 @@ import 'package:habesha_tax_app/core/services/frappe_client.dart';
 import 'package:habesha_tax_app/data/model/transaction.dart';
 import 'package:habesha_tax_app/features/auth/bloc/auth_bloc.dart';
 import 'package:habesha_tax_app/features/auth/bloc/auth_state.dart';
+import 'package:habesha_tax_app/features/booking/view/booking_screen.dart';
 import 'package:habesha_tax_app/features/transaction/view/add_transaction_screen.dart';
 import 'package:habesha_tax_app/features/transaction/view/transaction_detail_screen.dart';
 import 'package:habesha_tax_app/core/utils/user_friendly_error.dart';
@@ -143,6 +144,15 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         actions: [const NotificationBellButton()],
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (_) => const BookingScreen()));
+        },
+        icon: const Icon(Icons.calendar_month_outlined),
+        label: const Text('Book Meeting'),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -259,7 +269,7 @@ class _HomeScreenState extends State<HomeScreen> {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: iconColor.withOpacity(0.1), // light background
+            color: iconColor.withValues(alpha: 0.1), // light background
             shape: BoxShape.circle,
           ),
           child: Icon(icon, color: iconColor, size: 20),
