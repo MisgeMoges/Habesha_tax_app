@@ -3,18 +3,20 @@ class FrappeConfig {
 
   static const String baseUrl = String.fromEnvironment(
     'FRAPPE_BASE_URL',
-    defaultValue: 'http://10.138.15.118:8000',
-    // defaultValue: 'http://192.168.0.144:8000',
+    // defaultValue: 'http://192.168.2.64:8000',
+    defaultValue: 'http://207.180.214.194:8080', //server url
   );
 
   static const String apiKey = String.fromEnvironment(
     'FRAPPE_API_KEY',
-    defaultValue: 'c3637bac574b748',
+    // defaultValue: 'c3637bac574b748',
+    defaultValue: '088cd0a15dd8861', //server key
   );
 
   static const String apiSecret = String.fromEnvironment(
     'FRAPPE_API_SECRET',
-    defaultValue: '183429d6ef3227b',
+    // defaultValue: '183429d6ef3227b',
+    defaultValue: 'd0ddd3077463e15', //server secret
   );
 
   static bool get useTokenAuth => apiKey.isNotEmpty && apiSecret.isNotEmpty;

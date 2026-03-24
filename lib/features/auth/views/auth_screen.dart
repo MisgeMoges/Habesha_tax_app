@@ -111,7 +111,7 @@ class _AuthScreenState extends State<AuthScreen> {
     } catch (e) {
       setState(() {
         _lookupError =
-            'Some registration options could not be loaded. You can still continue.';
+            'Some registration options could not be loaded. You can still continue. Error: ${e.toString()}';
 
         // Set default values if API fails
         _countries = ['Ethiopia', 'Kenya', 'Uganda', 'Tanzania'];
