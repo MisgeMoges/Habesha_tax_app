@@ -8,7 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import '../../../../core/config/frappe_config.dart';
 import '../../../../core/services/frappe_client.dart';
 import '../../../../data/model/transaction_category.dart';
-import 'invoice_models.dart';
+import '../../../../data/model/invoice_models.dart';
 
 class InvoiceService {
   InvoiceService({FrappeClient? client}) : _client = client ?? FrappeClient();

@@ -203,7 +203,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Total Balance',
+                      'Total Transaction',
                       style: TextStyle(fontSize: 14, color: Colors.white70),
                     ),
                     const SizedBox(height: 8),

@@ -231,18 +231,7 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
           "sender": _currentUserId,
         },
       );
-      // await _client.post(
-      //   '/api/resource/${FrappeConfig.chatMessageDoctype}',
-      //   body: {
-      //     'data': {
-      //       FrappeConfig.chatMessageSenderField: _currentUserId,
-      //       FrappeConfig.chatMessageReceiverField: selectedClientId,
-      //       FrappeConfig.chatMessageBodyField: payloadText,
-      //       FrappeConfig.chatMessageTimestampField: DateTime.now()
-      //           .toIso8601String(),
-      //     },
-      //   },
-      // );
+
       await _refreshUnreadCount();
     } catch (e) {
       if (attachmentUrl != null && attachmentName != null) {

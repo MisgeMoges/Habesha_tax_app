@@ -431,6 +431,9 @@ class _AuthScreenState extends State<AuthScreen> {
             ),
           );
         } else if (state is Authenticated) {
+          // Clear any visible snackbars (e.g. previous errors) before
+          // navigating so they don't appear on the next screen.
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (_) => const AppWrapper()),

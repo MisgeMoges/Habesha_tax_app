@@ -2,8 +2,11 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/config/frappe_config.dart';
+import 'package:habesha_tax_app/features/auth/bloc/auth_bloc.dart';
+import 'package:habesha_tax_app/features/auth/bloc/auth_state.dart';
 import '../../../core/services/frappe_client.dart';
 import '../../../core/utils/user_friendly_error.dart';
 
@@ -109,21 +112,26 @@ class _ClientEmployeeManagementScreenState
     });
 
     try {
+      // Use authenticated user's email to query the Client doctype
+      final authState = context.read<AuthBloc>().state;
+      final user = authState is Authenticated ? authState.user : null;
+      final userEmail = user?.email ?? '';
+      if (userEmail.isEmpty) throw Exception('User not authenticated');
+
       final response = await _client.get(
-        '/api/method/habesha_tax.habesha_tax.doctype.client.client.get_clients',
+        '/api/resource/${FrappeConfig.clientDoctype}',
+        queryParameters: {
+          'filters': '[["user_id","=","$userEmail"]]',
+          'limit_page_length': '1',
+        },
       );
 
-      if (response['success'] == true) {
-        final data = response['data'];
-        if (data is List && data.isNotEmpty) {
-          final first = Map<String, dynamic>.from(data.first as Map);
-          _clientId =
-              first['id']?.toString() ?? first['name']?.toString() ?? '';
-        } else {
-          throw Exception('Client record not found');
-        }
+      final data = response['data'] ?? response['message'];
+      if (data is List && data.isNotEmpty) {
+        final first = Map<String, dynamic>.from(data.first as Map);
+        _clientId = first['name']?.toString() ?? first['id']?.toString() ?? '';
       } else {
-        throw Exception(response['message'] ?? 'Failed to load client');
+        throw Exception('Client record not found');
       }
     } catch (e) {
       _clientIdError = UserFriendlyError.message(
@@ -274,6 +282,20 @@ class _ClientEmployeeManagementScreenState
       _payrollEntries
         ..clear()
         ..addAll(rows.map((e) => Map<String, dynamic>.from(e as Map)));
+
+      // If payroll entries don't include an hourly/salary rate, default to
+      // the employee's hourly rate so the list displays a value.
+      final employeeHourly = data[FrappeConfig.clientEmployeeHourlyRateField]
+          ?.toString()
+          .trim();
+      if (employeeHourly != null && employeeHourly.isNotEmpty) {
+        for (final entry in _payrollEntries) {
+          final rate = entry[FrappeConfig.payrollHourlyRateField];
+          if (rate == null || rate.toString().trim().isEmpty) {
+            entry[FrappeConfig.payrollHourlyRateField] = employeeHourly;
+          }
+        }
+      }
     } catch (e) {
       _detailError = UserFriendlyError.message(
         e,
@@ -394,8 +416,17 @@ class _ClientEmployeeManagementScreenState
     );
 
     if (result != true) {
-      postingDateController.dispose();
-      workedHoursController.dispose();
+      // Schedule disposal after the current microtask to avoid disposing
+      // controllers while the dialog/pop is still finalizing which can
+      // cause "wrong build scope" assertions.
+      Future.microtask(() {
+        try {
+          postingDateController.dispose();
+        } catch (_) {}
+        try {
+          workedHoursController.dispose();
+        } catch (_) {}
+      });
       return;
     }
 
@@ -407,8 +438,15 @@ class _ClientEmployeeManagementScreenState
       hourlyRate: hourlyRate,
     );
 
-    postingDateController.dispose();
-    workedHoursController.dispose();
+    // Dispose controllers after a microtask to avoid race with dialog
+    Future.microtask(() {
+      try {
+        postingDateController.dispose();
+      } catch (_) {}
+      try {
+        workedHoursController.dispose();
+      } catch (_) {}
+    });
   }
 
   Future<void> _savePayrollEntry({

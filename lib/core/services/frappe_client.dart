@@ -125,17 +125,38 @@ class FrappeClient {
       HttpHeaders.acceptHeader: 'application/json',
     };
 
+    // PRIORITY: session login
+    if (_sessionCookie != null && _sessionCookie!.isNotEmpty) {
+      headers[HttpHeaders.cookieHeader] = _sessionCookie!;
+      return headers;
+    }
+
+    // fallback to API key
     if (useTokenAuth && FrappeConfig.useTokenAuth) {
       headers[HttpHeaders.authorizationHeader] =
           'token ${FrappeConfig.apiKey}:${FrappeConfig.apiSecret}';
     }
 
-    if (_sessionCookie != null && _sessionCookie!.isNotEmpty) {
-      headers[HttpHeaders.cookieHeader] = _sessionCookie!;
-    }
-
     return headers;
   }
+
+  // Map<String, String> _headers({bool useTokenAuth = true}) {
+  //   final headers = <String, String>{
+  //     HttpHeaders.contentTypeHeader: 'application/json',
+  //     HttpHeaders.acceptHeader: 'application/json',
+  //   };
+
+  //   if (useTokenAuth && FrappeConfig.useTokenAuth) {
+  //     headers[HttpHeaders.authorizationHeader] =
+  //         'token ${FrappeConfig.apiKey}:${FrappeConfig.apiSecret}';
+  //   }
+
+  //   if (_sessionCookie != null && _sessionCookie!.isNotEmpty) {
+  //     headers[HttpHeaders.cookieHeader] = _sessionCookie!;
+  //   }
+
+  //   return headers;
+  // }
 
   String? _extractSessionCookie(http.Response response) {
     final setCookie = response.headers['set-cookie'];
@@ -152,7 +173,9 @@ class FrappeClient {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return;
     }
-    throw Exception('Frappe request failed: ${response.statusCode}');
+    throw Exception(
+      'Frappe request failed: ${response.statusCode} ${response.body}',
+    );
   }
 
   //   Map<String, dynamic> _decode(String body) {

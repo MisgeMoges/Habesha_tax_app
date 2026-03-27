@@ -16,7 +16,7 @@ class FrappeConfig {
   static const String apiSecret = String.fromEnvironment(
     'FRAPPE_API_SECRET',
     // defaultValue: '183429d6ef3227b',
-    defaultValue: 'd0ddd3077463e15', //server secret
+    defaultValue: '8fa8ef56cd36587', //server secret
   );
 
   static bool get useTokenAuth => apiKey.isNotEmpty && apiSecret.isNotEmpty;

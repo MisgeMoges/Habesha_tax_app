@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../../data/model/transaction_category.dart';
-import '../invoice_models.dart';
+import '../../../../../data/model/invoice_models.dart';
 
 class InvoiceFormView extends StatelessWidget {
   const InvoiceFormView({

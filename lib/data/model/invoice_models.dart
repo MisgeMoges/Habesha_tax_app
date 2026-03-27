@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/config/frappe_config.dart';
+import '../../core/config/frappe_config.dart';
 
 class InvoiceServiceLineForm {
   InvoiceServiceLineForm({

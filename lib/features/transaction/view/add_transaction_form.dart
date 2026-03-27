@@ -122,8 +122,6 @@ class _AddTransactionFormScreenState extends State<AddTransactionFormScreen> {
         '/api/method/habesha_tax.habesha_tax.doctype.transaction_category.transaction_category.get_transaction_categories',
       );
 
-      print('Categories response: $categoriesResponse');
-
       if (categoriesResponse['success'] == true) {
         final categoriesData = categoriesResponse['data'];
 

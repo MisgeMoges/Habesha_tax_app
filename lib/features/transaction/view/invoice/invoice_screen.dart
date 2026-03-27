@@ -7,7 +7,7 @@ import '../../../auth/bloc/auth_state.dart';
 import '../../../../core/config/frappe_config.dart';
 import '../../../../core/utils/user_friendly_error.dart';
 import '../../../../data/model/transaction_category.dart';
-import 'invoice_models.dart';
+import '../../../../data/model/invoice_models.dart';
 import 'invoice_service.dart';
 import 'widgets/invoice_detail_view.dart';
 import 'widgets/invoice_form_view.dart';

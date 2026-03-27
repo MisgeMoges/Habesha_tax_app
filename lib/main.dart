@@ -2,16 +2,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:internet_connection_checker/internet_connection_checker.dart';
-
 import 'features/auth/bloc/auth_bloc.dart';
 import 'features/auth/bloc/auth_state.dart';
 import 'features/auth/repository/auth_repository_impl.dart';
 import 'data/datasources/auth/auth.dart';
 import 'core/network/network_info.dart';
-import 'features/tax/bloc/tax_bloc.dart';
-import 'features/tax/repository/tax_repository_impl.dart';
-import 'data/datasources/tax/tax_remote_data_source.dart';
-
 import 'features/general/home/home_screen.dart';
 import 'features/general/splash_screen.dart';
 import 'features/auth/views/auth_screen.dart';
@@ -26,7 +21,6 @@ import 'shared/navigations/bottom_nav_bar.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // await NotificationService.initialize();
   runApp(const MyApp());
 }
 
@@ -39,20 +33,9 @@ class MyApp extends StatelessWidget {
       remoteDataSource: AuthRemoteDataSourceImpl(),
       networkInfo: NetworkInfoImpl(InternetConnectionChecker()),
     );
-    final taxRepository = TaxRepositoryImpl(
-      remoteDataSource: TaxRemoteDataSourceImpl(),
-    );
 
     return MultiBlocProvider(
-      providers: [
-        BlocProvider(create: (context) => AuthBloc(authRepository)),
-        BlocProvider(
-          create: (context) => TaxBloc(
-            taxRepository: taxRepository,
-            authBloc: BlocProvider.of<AuthBloc>(context),
-          ),
-        ),
-      ],
+      providers: [BlocProvider(create: (context) => AuthBloc(authRepository))],
       child: MaterialApp(
         title: 'Habesha Tax App',
         debugShowCheckedModeBanner: false,
