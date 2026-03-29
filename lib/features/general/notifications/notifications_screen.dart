@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import '../../../core/config/frappe_config.dart';
 import '../../../core/services/frappe_client.dart';
+import '../../../core/services/frappe_realtime_service.dart';
 import '../../../core/utils/user_friendly_error.dart';
 import '../../auth/bloc/auth_bloc.dart';
 import '../../auth/bloc/auth_state.dart';
@@ -52,6 +53,24 @@ class NotificationCenter {
       unreadCountNotifier.value = 0;
     }
   }
+
+  static Future<void> markAsRead({
+    required String id,
+    required String userEmail,
+  }) async {
+    final client = FrappeClient();
+    try {
+      await client.put(
+        '/api/resource/${FrappeConfig.notificationDoctype}/$id',
+        body: {
+          'data': {FrappeConfig.notificationReadField: 1},
+        },
+      );
+    } catch (_) {
+      // ignore errors; we'll refresh count below
+    }
+    await refreshUnreadCount(userEmail: userEmail);
+  }
 }
 
 class NotificationScreen extends StatefulWidget {
@@ -63,6 +82,7 @@ class NotificationScreen extends StatefulWidget {
 
 class _NotificationScreenState extends State<NotificationScreen> {
   final FrappeClient _client = FrappeClient();
+  final FrappeRealtimeService _realtime = FrappeRealtimeService();
   bool _loading = false;
   String? _errorMessage;
   List<Map<String, dynamic>> _notifications = [];
@@ -71,6 +91,12 @@ class _NotificationScreenState extends State<NotificationScreen> {
   void initState() {
     super.initState();
     _loadNotifications();
+  }
+
+  @override
+  void dispose() {
+    _realtime.dispose();
+    super.dispose();
   }
 
   Future<void> _loadNotifications() async {
@@ -90,7 +116,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
         '/api/resource/${FrappeConfig.notificationDoctype}',
         queryParameters: {
           'filters': jsonEncode([
-            // [FrappeConfig.notificationRecipientField, '=', userEmail],
+            [FrappeConfig.notificationRecipientField, '=', userEmail],
           ]),
           'fields': jsonEncode([
             'name',
@@ -108,11 +134,12 @@ class _NotificationScreenState extends State<NotificationScreen> {
       final data = response['data'];
       if (data is List) {
         _notifications = data.map((item) {
-          final timestamp =
-              DateTime.tryParse(
-                item[FrappeConfig.notificationTimestampField]?.toString() ?? '',
-              ) ??
-              DateTime.now();
+          // Prefer server timestamp converted to local time for display.
+          // If missing or invalid, fall back to app arrival time.
+          final parsed = DateTime.tryParse(
+            item[FrappeConfig.notificationTimestampField]?.toString() ?? '',
+          );
+          final timestamp = parsed?.toLocal() ?? DateTime.now();
           return {
             'id': item['name']?.toString() ?? '',
             'title':
@@ -127,6 +154,60 @@ class _NotificationScreenState extends State<NotificationScreen> {
         }).toList();
       }
       await NotificationCenter.refreshUnreadCount(userEmail: userEmail);
+
+      // Connect to realtime service to receive notifications live
+      try {
+        _realtime.connect(userEmail: userEmail);
+        _realtime.events.listen((data) {
+          // Attempt to interpret incoming event as a notification
+          final Map<String, dynamic> payload = Map<String, dynamic>.from(data);
+          if (payload.containsKey('title') ||
+              payload.containsKey('message') ||
+              payload['type'] == 'notification') {
+            // For realtime notifications, record arrival time for display
+            // and preserve server timestamp (if present) separately.
+            DateTime? serverTs;
+            final tsCandidates = [
+              payload['timestamp'],
+              payload['created'],
+              payload['time'],
+              payload['date'],
+            ];
+            for (final cand in tsCandidates) {
+              if (cand == null) continue;
+              try {
+                final s = cand.toString();
+                if (s.isEmpty) continue;
+                final parsed = DateTime.tryParse(s);
+                if (parsed != null) {
+                  serverTs = parsed.toLocal();
+                  break;
+                }
+              } catch (_) {}
+            }
+            final arrival = DateTime.now();
+            final newItem = {
+              'id': payload['name']?.toString() ?? '',
+              'title': payload['title']?.toString() ?? 'Notification',
+              'message':
+                  payload['message']?.toString() ??
+                  payload['body']?.toString() ??
+                  '',
+              // display arrival time for realtime notifications
+              'timestamp': arrival,
+              // keep server timestamp for reference if available
+              'server_timestamp': serverTs,
+              'read': 0,
+              'type': payload['type']?.toString(),
+            };
+            setState(() => _notifications.insert(0, newItem));
+            NotificationCenter.unreadCountNotifier.value =
+                NotificationCenter.unreadCountNotifier.value + 1;
+          }
+        });
+      } catch (_) {
+        // ignore realtime connect errors
+      }
     } catch (e) {
       _errorMessage = UserFriendlyError.message(
         e,
@@ -190,16 +271,47 @@ class _NotificationScreenState extends State<NotificationScreen> {
   }
 }
 
-class NotificationItem extends StatelessWidget {
+class NotificationItem extends StatefulWidget {
   final Map<String, dynamic> item;
 
   const NotificationItem({super.key, required this.item});
 
   @override
+  State<NotificationItem> createState() => _NotificationItemState();
+}
+
+class _NotificationItemState extends State<NotificationItem> {
+  late Map<String, dynamic> item;
+
+  @override
+  void initState() {
+    super.initState();
+    item = widget.item;
+  }
+
+  Future<void> _markReadIfNeeded(String userEmail) async {
+    if (item['read'] == 0 || item['read'] == '0') {
+      try {
+        await NotificationCenter.markAsRead(
+          id: item['id']?.toString() ?? '',
+          userEmail: userEmail,
+        );
+      } catch (_) {}
+      setState(() => item['read'] = 1);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final isUnread = item['read'] == 0 || item['read'] == '0';
+    final bg = isUnread ? Colors.deepPurple.shade50 : Colors.white;
+    final titleStyle = TextStyle(
+      fontSize: 16,
+      fontWeight: isUnread ? FontWeight.w700 : FontWeight.w400,
+    );
     return Card(
       elevation: 0,
-      color: Colors.white,
+      color: bg,
       margin: const EdgeInsets.symmetric(vertical: 6),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -209,13 +321,15 @@ class NotificationItem extends StatelessWidget {
           radius: 24,
         ),
         title: Text(
-          item['title'],
+          item['title'] ?? '',
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 16),
+          style: titleStyle,
         ),
         subtitle: Text(
-          DateFormat('hh:mm a').format(item['timestamp'] as DateTime),
+          DateFormat(
+            'hh:mm a',
+          ).format((item['timestamp'] as DateTime).toLocal()),
           style: const TextStyle(fontSize: 12),
         ),
         trailing: item['action'] != null
@@ -227,8 +341,14 @@ class NotificationItem extends StatelessWidget {
                 ),
               )
             : const Icon(Icons.chevron_right),
-        onTap: () {
-          Navigator.push(
+        onTap: () async {
+          final authState = context.read<AuthBloc>().state;
+          final user = authState is Authenticated ? authState.user : null;
+          final userEmail = user?.email ?? '';
+          if (userEmail.isNotEmpty) {
+            await _markReadIfNeeded(userEmail);
+          }
+          await Navigator.push(
             context,
             MaterialPageRoute(
               builder: (_) => NotificationDetailScreen(item: item),

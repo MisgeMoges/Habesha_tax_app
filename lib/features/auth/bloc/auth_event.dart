@@ -12,11 +12,16 @@ class AuthCheckRequested extends AuthEvent {}
 class SignInRequested extends AuthEvent {
   final String email;
   final String password;
+  final bool remember;
 
-  const SignInRequested({required this.email, required this.password});
+  const SignInRequested({
+    required this.email,
+    required this.password,
+    this.remember = false,
+  });
 
   @override
-  List<Object?> get props => [email, password];
+  List<Object?> get props => [email, password, remember];
 }
 
 class SignUpRequested extends AuthEvent {

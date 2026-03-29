@@ -46,7 +46,7 @@ class NotificationDetailScreen extends StatelessWidget {
                     Text(
                       DateFormat(
                         'hh:mm a',
-                      ).format(item['timestamp'] as DateTime),
+                      ).format((item['timestamp'] as DateTime).toLocal()),
                       style: const TextStyle(fontSize: 12, color: Colors.grey),
                     ),
                   ],

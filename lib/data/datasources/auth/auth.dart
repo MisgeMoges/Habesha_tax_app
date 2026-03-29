@@ -251,6 +251,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       final response = await _client.get(
         '/api/method/frappe.auth.get_logged_user',
       );
+      print('Current user response: $response');
       final userId = response['message']?.toString();
       if (userId == null || userId.isEmpty) return _cachedUser;
 
