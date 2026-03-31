@@ -46,6 +46,8 @@ class _AddTransactionFormScreenState extends State<AddTransactionFormScreen> {
   bool _isSubmitting = false;
   bool _loadingLookups = false;
   bool _loadingClient = false;
+  String _selectedCurrencyCode = 'GBP';
+  String _selectedCurrencySymbol = '£';
   String? _lookupError;
   String? _clientError;
   List<TransactionCategory> _categories = [];
@@ -71,6 +73,21 @@ class _AddTransactionFormScreenState extends State<AddTransactionFormScreen> {
     _dateController.text = DateFormat('yyyy-MM-dd').format(_selectedDate);
     _loadLookups();
     _loadClientData();
+  }
+
+  void _onCurrencyChanged(String? code) {
+    if (code == null) return;
+    setState(() {
+      _selectedCurrencyCode = code;
+      if (code == 'GBP')
+        _selectedCurrencySymbol = '£';
+      else if (code == 'USD')
+        _selectedCurrencySymbol = r'$';
+      else if (code == 'ETB')
+        _selectedCurrencySymbol = 'Br';
+      else
+        _selectedCurrencySymbol = code;
+    });
   }
 
   Future<void> _loadClientData() async {
@@ -310,6 +327,8 @@ class _AddTransactionFormScreenState extends State<AddTransactionFormScreen> {
         FrappeConfig.transactionNoteField: _noteController.text.trim(),
       };
 
+      // NOTE: do not send currency to server yet (server has no currency field).
+
       if (mainFileUrl != null && mainFileUrl.isNotEmpty) {
         payload[FrappeConfig.transactionMainFileField] = mainFileUrl;
       }
@@ -401,13 +420,29 @@ class _AddTransactionFormScreenState extends State<AddTransactionFormScreen> {
               ),
               const SizedBox(height: 16),
 
+              // Currency selector
+              DropdownButtonFormField<String>(
+                value: _selectedCurrencyCode,
+                decoration: const InputDecoration(
+                  labelText: 'Currency',
+                  border: OutlineInputBorder(),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'GBP', child: Text('GBP — £')),
+                  DropdownMenuItem(value: 'USD', child: Text('USD — \$')),
+                  DropdownMenuItem(value: 'ETB', child: Text('ETB — Br')),
+                ],
+                onChanged: _onCurrencyChanged,
+              ),
+              const SizedBox(height: 12),
+
               // Amount
               TextFormField(
                 controller: _amountController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Amount',
-                  prefixText: '\$ ',
-                  border: OutlineInputBorder(),
+                  prefixText: '$_selectedCurrencySymbol ',
+                  border: const OutlineInputBorder(),
                 ),
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,

@@ -184,7 +184,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
   Widget build(BuildContext context) {
     final isIncome = _transaction.isIncome;
     final amountText =
-        '${isIncome ? '+' : '-'}${NumberFormat.currency(symbol: r'$').format(_transaction.amount.abs())}';
+        '${isIncome ? '+' : '-'}${NumberFormat.currency(symbol: '£').format(_transaction.amount.abs())}';
     final dateText = _transaction.postingDateValue != null
         ? DateFormat('MMM dd, yyyy').format(_transaction.postingDateValue!)
         : _transaction.postingDate;

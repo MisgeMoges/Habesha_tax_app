@@ -27,7 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _loading = false;
   String? _error;
   List<Transaction> _transactions = [];
-  final NumberFormat _currency = NumberFormat.currency(symbol: r'$');
+  final NumberFormat _currency = NumberFormat.currency(symbol: '£');
 
   @override
   void initState() {
@@ -176,7 +176,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final expenseTotal = _transactions
         .where((tx) => !tx.isIncome)
         .fold<double>(0, (sum, tx) => sum + tx.amount.abs());
-    final totalBalance = incomeTotal - expenseTotal;
+    final totalBalance = incomeTotal + expenseTotal;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -385,7 +385,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         subtitle: Text(timeLabel),
         trailing: Text(
-          '${isIncome ? '+' : '-'}\$${tx.amount.abs().toStringAsFixed(2)}',
+          '${isIncome ? '+' : '-'}£${tx.amount.abs().toStringAsFixed(2)}',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,

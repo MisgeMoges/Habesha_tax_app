@@ -6,7 +6,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/config/frappe_config.dart';
 import '../../../core/services/frappe_client.dart';
 import '../../../core/services/frappe_realtime_service.dart';
@@ -56,11 +55,9 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
     if (authState is Authenticated) {
       _currentUserId = authState.user.email.trim();
     }
-    _loadLastSeen().whenComplete(() {
-      _connectRealtime();
-      _loadCurrentUserAndClients();
-      _startPolling();
-    });
+    _connectRealtime();
+    _loadCurrentUserAndClients();
+    _startPolling();
   }
 
   @override
@@ -80,52 +77,7 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
 
     _realtimeService.connect(userEmail: _currentUserId);
     _realtimeSubscription?.cancel();
-    _realtimeSubscription = _realtimeService.events.listen((data) {
-      try {
-        final payload = Map<String, dynamic>.from(data);
-        final sender = payload[FrappeConfig.chatMessageSenderField]?.toString();
-        final receiver = payload[FrappeConfig.chatMessageReceiverField]
-            ?.toString();
-
-        if (sender != null && receiver != null) {
-          final partnerId = sender == _currentUserId ? receiver : sender;
-          final id = payload['name']?.toString() ?? '';
-          final serverParsed = DateTime.tryParse(
-            payload[FrappeConfig.chatMessageTimestampField]?.toString() ?? '',
-          );
-          final arrival = DateTime.now();
-          final message = {
-            'id': id,
-            'text':
-                payload[FrappeConfig.chatMessageBodyField]?.toString() ??
-                payload['message']?.toString() ??
-                '',
-            'isSentByUser': sender == _currentUserId,
-            'server_timestamp': serverParsed != null
-                ? serverParsed.toLocal()
-                : null,
-            // use arrival time for realtime messages
-            'timestamp': arrival,
-          };
-
-          // insert into history for this partner if not already present
-          final list = chatHistories.putIfAbsent(partnerId, () => []);
-          final exists =
-              id.isNotEmpty &&
-              list.any((m) => (m['id']?.toString() ?? '') == id);
-          if (!exists) {
-            setState(() {
-              list.add(message);
-              _latestMessageByClient[partnerId] = {
-                'text': message['text'],
-                'timestamp': message['timestamp'],
-              };
-            });
-          }
-        }
-      } catch (_) {}
-
-      // keep polling/updating counts as before
+    _realtimeSubscription = _realtimeService.events.listen((_) {
       _pollUnreadAndOpenConversation();
     });
   }
@@ -279,7 +231,18 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
           "sender": _currentUserId,
         },
       );
-
+      // await _client.post(
+      //   '/api/resource/${FrappeConfig.chatMessageDoctype}',
+      //   body: {
+      //     'data': {
+      //       FrappeConfig.chatMessageSenderField: _currentUserId,
+      //       FrappeConfig.chatMessageReceiverField: selectedClientId,
+      //       FrappeConfig.chatMessageBodyField: payloadText,
+      //       FrappeConfig.chatMessageTimestampField: DateTime.now()
+      //           .toIso8601String(),
+      //     },
+      //   },
+      // );
       await _refreshUnreadCount();
     } catch (e) {
       if (attachmentUrl != null && attachmentName != null) {
@@ -315,6 +278,27 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
       });
     }
     try {
+      // final response = await _client.get(
+      //   '/api/method/habesha_tax.habesha_tax.doctype.chat_message.chat_message.get_messages',
+      //   queryParameters: {
+      //     "client": "misganmoges@gmail.com",
+      //     "user": _currentUserId,
+      //   },
+      // );
+
+      // final data = response['message'];
+
+      // if (data is List) {
+      //   chatHistories[clientId] = data.map((item) {
+      //     final sender = item['sender']?.toString() ?? '';
+
+      //     return {
+      //       'text': item['message'] ?? '',
+      //       'isSentByUser': sender == _currentUserId,
+      //       'timestamp':
+      //           DateTime.tryParse(item['timestamp'] ?? '') ?? DateTime.now(),
+      //     };
+      //   }).toList();
       final response = await _client.get(
         '/api/resource/${FrappeConfig.chatMessageDoctype}',
         queryParameters: {
@@ -347,18 +331,15 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
         chatHistories[clientId] = data.map((item) {
           final sender =
               item[FrappeConfig.chatMessageSenderField]?.toString() ?? '';
-          final parsed = DateTime.tryParse(
-            item[FrappeConfig.chatMessageTimestampField]?.toString() ?? '',
-          );
-          final serverTs = parsed != null ? parsed.toLocal() : DateTime.now();
           return {
-            'id': item['name']?.toString() ?? '',
             'text': item[FrappeConfig.chatMessageBodyField]?.toString() ?? '',
             'isSentByUser': sender == _currentUserId,
-            // preserve server timestamp for unread/read logic
-            'server_timestamp': serverTs,
-            // for historical messages use server timestamp for display
-            'timestamp': serverTs,
+            'timestamp':
+                DateTime.tryParse(
+                  item[FrappeConfig.chatMessageTimestampField]?.toString() ??
+                      '',
+                ) ??
+                DateTime.now(),
           };
         }).toList();
         final history = chatHistories[clientId];
@@ -369,7 +350,7 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
             'timestamp': lastMessage['timestamp'],
           };
         }
-        _markConversationAsRead(clientId);
+        await _markConversationAsRead(clientId);
         await _refreshUnreadCount();
       }
     } catch (e) {
@@ -386,19 +367,12 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
     }
   }
 
-  void _markConversationAsRead(String clientId) {
+  Future<void> _markConversationAsRead(String clientId) async {
     final history = chatHistories[clientId] ?? const [];
     DateTime? latestIncoming;
     for (final msg in history) {
-      // Use server timestamp (if present) for read/unread comparisons so
-      // we don't mix display/arrival times with server-side message ordering.
-      final hasServerTs = msg.containsKey('server_timestamp');
-      final ts = hasServerTs
-          ? (msg['server_timestamp'] as DateTime)
-          : (msg['timestamp'] is DateTime
-                ? msg['timestamp'] as DateTime
-                : null);
-      if (msg['isSentByUser'] == false && ts is DateTime) {
+      if (msg['isSentByUser'] == false && msg['timestamp'] is DateTime) {
+        final ts = msg['timestamp'] as DateTime;
         if (latestIncoming == null || ts.isAfter(latestIncoming)) {
           latestIncoming = ts;
         }
@@ -406,47 +380,48 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
     }
     if (latestIncoming != null) {
       _lastSeenBySender[clientId] = latestIncoming;
-      _saveLastSeen();
     }
-  }
 
-  Future<void> _loadLastSeen() async {
-    if (_currentUserId.isEmpty) return;
+    // Mark unread messages from this client as read on the server (is_read = 1)
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final key = 'chat_last_seen_$_currentUserId';
-      final raw = prefs.getString(key);
-      if (raw == null || raw.isEmpty) return;
-      final Map<String, dynamic> decoded = jsonDecode(raw);
-      decoded.forEach((partner, iso) {
-        try {
-          final dt = DateTime.tryParse(iso);
-          if (dt != null) _lastSeenBySender[partner] = dt.toLocal();
-        } catch (_) {}
-      });
-    } catch (_) {}
-  }
-
-  Future<void> _saveLastSeen() async {
-    if (_currentUserId.isEmpty) return;
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final key = 'chat_last_seen_$_currentUserId';
-      final map = <String, String>{};
-      _lastSeenBySender.forEach((k, v) {
-        map[k] = v.toUtc().toIso8601String();
-      });
-      await prefs.setString(key, jsonEncode(map));
+      if (_currentUserId.isEmpty) return;
+      final resp = await _client.get(
+        '/api/resource/${FrappeConfig.chatMessageDoctype}',
+        queryParameters: {
+          'filters': jsonEncode([
+            [FrappeConfig.chatMessageSenderField, '=', clientId],
+            [FrappeConfig.chatMessageReceiverField, '=', _currentUserId],
+            ['is_read', '=', 0],
+          ]),
+          'fields': jsonEncode(['name']),
+          'limit_page_length': '500',
+        },
+      );
+      final data = resp['data'];
+      if (data is List) {
+        for (final row in data) {
+          final name = row['name']?.toString();
+          if (name == null || name.isEmpty) continue;
+          try {
+            await _client.put(
+              '/api/resource/${FrappeConfig.chatMessageDoctype}/$name',
+              body: {'is_read': 1},
+            );
+          } catch (_) {}
+        }
+      }
     } catch (_) {}
   }
 
   Future<void> _refreshUnreadCount() async {
     try {
+      // Only fetch messages that are still unread on the server
       final unreadResponse = await _client.get(
         '/api/resource/${FrappeConfig.chatMessageDoctype}',
         queryParameters: {
           'filters': jsonEncode([
             [FrappeConfig.chatMessageReceiverField, '=', _currentUserId],
+            ['is_read', '=', 0],
           ]),
           'fields': jsonEncode([
             FrappeConfig.chatMessageSenderField,
@@ -491,20 +466,19 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
           if (partnerId.isEmpty || partnerId == _currentUserId) continue;
           if (latestMessageByClient.containsKey(partnerId)) continue;
 
-          final previewParsed = DateTime.tryParse(
-            item[FrappeConfig.chatMessageTimestampField]?.toString() ?? '',
-          );
-          final previewTs = previewParsed != null
-              ? previewParsed.toLocal()
-              : DateTime.now();
           latestMessageByClient[partnerId] = {
             'text': item[FrappeConfig.chatMessageBodyField]?.toString() ?? '',
-            // use server timestamp (converted to local) for previews when available
-            'timestamp': previewTs,
+            'timestamp':
+                DateTime.tryParse(
+                  item[FrappeConfig.chatMessageTimestampField]?.toString() ??
+                      '',
+                ) ??
+                DateTime.now(),
           };
         }
       }
 
+      // Server indicates unread via `is_read` field, so simply count rows per sender
       var unread = 0;
       final unreadBySender = <String, int>{};
       for (final row in data) {
@@ -512,17 +486,8 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
         final sender =
             item[FrappeConfig.chatMessageSenderField]?.toString() ?? '';
         if (sender.isEmpty || sender == _currentUserId) continue;
-        final ts =
-            DateTime.tryParse(
-              item[FrappeConfig.chatMessageTimestampField]?.toString() ?? '',
-            )?.toLocal() ??
-            DateTime.now();
-        final seenAt =
-            _lastSeenBySender[sender] ?? DateTime.fromMillisecondsSinceEpoch(0);
-        if (ts.isAfter(seenAt)) {
-          unread += 1;
-          unreadBySender[sender] = (unreadBySender[sender] ?? 0) + 1;
-        }
+        unread += 1;
+        unreadBySender[sender] = (unreadBySender[sender] ?? 0) + 1;
       }
 
       AdminChatScreen.unreadCountNotifier.value = unread;

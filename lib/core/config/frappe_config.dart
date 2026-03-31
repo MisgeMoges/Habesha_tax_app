@@ -103,6 +103,10 @@ class FrappeConfig {
   static const String transactionMainFileField = 'main_file';
   static const String transactionAttachmentsField = 'multiple_attachment';
   static const String transactionAttachmentFileField = 'file';
+  // Optional currency field name on the transaction doctype. If your
+  // server stores transaction currency under a different field name,
+  // update this accordingly.
+  static const String transactionCurrencyField = 'currency';
 
   // Client invoice doctype and fields
   static const String clientInvoiceDoctype = 'Client Invoices';

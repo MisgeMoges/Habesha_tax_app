@@ -35,12 +35,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   final TextEditingController _dateController = TextEditingController();
   _RangeFilter _rangeFilter = _RangeFilter.all;
 
-  static const List<String> _transactionTypes = [
-    'Income',
-    'Expense',
-    'Payment',
-    'Receipt',
-  ];
+  static const List<String> _transactionTypes = ['Income', 'Expense'];
 
   @override
   void initState() {
@@ -566,7 +561,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                             ),
                             subtitle: Text(transaction.postingDate),
                             trailing: Text(
-                              '$sign\$${transaction.amount.abs().toStringAsFixed(2)}',
+                              '${sign}£${transaction.amount.abs().toStringAsFixed(2)}',
                               style: TextStyle(
                                 color: transaction.isIncome
                                     ? Colors.green
