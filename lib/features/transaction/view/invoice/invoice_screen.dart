@@ -44,12 +44,7 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
 
   final _vatAmountController = TextEditingController(text: '0');
   final List<InvoiceServiceLineForm> _serviceForms = [];
-  static const List<String> _transactionTypes = [
-    'Income',
-    'Expense',
-    'Payment',
-    'Receipt',
-  ];
+  static const List<String> _transactionTypes = ['Income', 'Expense'];
 
   String? _clientId;
   String _invoiceDateNameFieldKey =

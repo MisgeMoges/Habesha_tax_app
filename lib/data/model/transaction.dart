@@ -46,9 +46,26 @@ class Transaction {
     };
   }
 
-  bool get isIncome => type.toLowerCase() == 'income';
+  bool get isIncome {
+    final normalized = type.trim().toLowerCase();
+    switch (normalized) {
+      case 'income':
+      case 'in':
+      case 'credit':
+      case 'receipt':
+      case 'received':
+        return true;
+      case 'expense':
+      case 'out':
+      case 'debit':
+      case 'payment':
+        return false;
+      default:
+        return false;
+    }
+  }
 
-  String get title => category.isNotEmpty ? category_name : 'Transaction';
+  String get title => category_name.isNotEmpty ? category_name : 'Transaction';
 
   DateTime? get postingDateValue => DateTime.tryParse(postingDate);
 }

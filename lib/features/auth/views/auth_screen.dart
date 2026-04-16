@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:habesha_tax_app/core/constants/app_color.dart';
 import 'package:habesha_tax_app/core/services/frappe_client.dart';
+import 'package:habesha_tax_app/features/privacy/view/privacy_policy_screen.dart';
+import 'package:habesha_tax_app/features/privacy/view/terms_and_conditions_screen.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
@@ -40,7 +42,6 @@ class _AuthScreenState extends State<AuthScreen> {
   String _selectedBusinessType = '';
   String _selectedBusinessStatus = 'Active';
   String _selectedTaxCategory = '';
-  String _selectedUserCategory = 'Business Owner';
   bool _acceptTerms = false;
   bool _resetRequested = false;
   String _resetMessage = 'Password updated successfully. Please log in.';
@@ -54,8 +55,6 @@ class _AuthScreenState extends State<AuthScreen> {
   final List<String> _businessStatuses = ['Active', 'Inactive', 'Pending'];
   List<String> _taxCategories = [];
   List<String> _countries = [];
-  final List<String> _userCategories = ['Employee', 'Business Owner'];
-
   @override
   void initState() {
     super.initState();
@@ -154,6 +153,20 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
+  void _openTermsAndConditions() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const TermsAndConditionsScreen()),
+    );
+  }
+
+  void _openPrivacyPolicy() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const PrivacyPolicyScreen()),
+    );
+  }
+
   void _submit() {
     if (_isLogin && !_formKey.currentState!.validate()) return;
     if (!_isLogin && !_validateAllRegistration()) return;
@@ -173,7 +186,6 @@ class _AuthScreenState extends State<AuthScreen> {
           firstName: _firstNameController.text.trim(),
           lastName: _lastNameController.text.trim(),
           mobileNumber: _mobileController.text.trim(),
-          userCategory: _selectedUserCategory,
           businessType: _selectedBusinessType,
           businessStatus: _selectedBusinessStatus,
           tinNumber: _tinController.text.trim(),
@@ -182,9 +194,7 @@ class _AuthScreenState extends State<AuthScreen> {
           addressLine2: _addressLine2Controller.text.trim().isEmpty
               ? null
               : _addressLine2Controller.text.trim(),
-          postalCode: _postalCodeController.text.trim().isEmpty
-              ? null
-              : _postalCodeController.text.trim(),
+          postalCode: _postalCodeController.text.trim(),
           city: _cityController.text.trim(),
           state: _stateController.text.trim(),
           country: _selectedCountry,
@@ -252,6 +262,8 @@ class _AuthScreenState extends State<AuthScreen> {
         message = 'Please enter your state/province';
       } else if (_selectedCountry.isEmpty) {
         message = 'Please enter your country';
+      } else if (_postalCodeController.text.trim().isEmpty) {
+        message = 'Please enter your postal code';
       }
     } else if (step == 3) {
       if (!_acceptTerms) {
@@ -649,24 +661,6 @@ class _AuthScreenState extends State<AuthScreen> {
                                 ),
                                 obscureText: _obscureRegisterConfirmPassword,
                               ),
-                              const SizedBox(height: 16),
-                              DropdownButtonFormField<String>(
-                                value: _selectedUserCategory,
-                                decoration: const InputDecoration(
-                                  labelText: 'User Category *',
-                                  border: OutlineInputBorder(),
-                                ),
-                                items: _userCategories.map((value) {
-                                  return DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(value),
-                                  );
-                                }).toList(),
-                                onChanged: (value) {
-                                  if (value == null) return;
-                                  setState(() => _selectedUserCategory = value);
-                                },
-                              ),
                             ],
                           ),
                         ),
@@ -719,7 +713,7 @@ class _AuthScreenState extends State<AuthScreen> {
                               TextFormField(
                                 controller: _tinController,
                                 decoration: const InputDecoration(
-                                  labelText: 'Tax ID (TIN) *',
+                                  labelText: 'UTR Number *',
                                   border: OutlineInputBorder(),
                                 ),
                               ),
@@ -849,9 +843,15 @@ class _AuthScreenState extends State<AuthScreen> {
                               TextFormField(
                                 controller: _postalCodeController,
                                 decoration: const InputDecoration(
-                                  labelText: 'Postal Code (Optional)',
+                                  labelText: 'Postal Code *',
                                   border: OutlineInputBorder(),
                                 ),
+                                validator: (value) {
+                                  if (value == null || value.trim().isEmpty) {
+                                    return 'Please enter your postal code';
+                                  }
+                                  return null;
+                                },
                               ),
                             ],
                           ),
@@ -859,14 +859,40 @@ class _AuthScreenState extends State<AuthScreen> {
                         Step(
                           title: const Text('Terms'),
                           isActive: _registerStep >= 3,
-                          content: CheckboxListTile(
-                            value: _acceptTerms,
-                            contentPadding: EdgeInsets.zero,
-                            title: const Text('Accept Terms & Conditions *'),
-                            onChanged: (value) {
-                              setState(() => _acceptTerms = value ?? false);
-                            },
-                            controlAffinity: ListTileControlAffinity.leading,
+                          content: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              CheckboxListTile(
+                                value: _acceptTerms,
+                                contentPadding: EdgeInsets.zero,
+                                title: const Text(
+                                  'Accept Terms & Conditions *',
+                                ),
+                                onChanged: (value) {
+                                  setState(() => _acceptTerms = value ?? false);
+                                },
+                                controlAffinity:
+                                    ListTileControlAffinity.leading,
+                              ),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  OutlinedButton.icon(
+                                    onPressed: _openTermsAndConditions,
+                                    icon: const Icon(Icons.gavel_outlined),
+                                    label: const Text('View Terms'),
+                                  ),
+                                  OutlinedButton.icon(
+                                    onPressed: _openPrivacyPolicy,
+                                    icon: const Icon(
+                                      Icons.privacy_tip_outlined,
+                                    ),
+                                    label: const Text('View Privacy'),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -936,6 +962,21 @@ class _AuthScreenState extends State<AuthScreen> {
                                 ],
                               ),
                             ),
+                          ),
+                          Wrap(
+                            alignment: WrapAlignment.center,
+                            spacing: 6,
+                            children: [
+                              TextButton(
+                                onPressed: _openTermsAndConditions,
+                                child: const Text('Terms & Conditions'),
+                              ),
+                              const Text('•'),
+                              TextButton(
+                                onPressed: _openPrivacyPolicy,
+                                child: const Text('Privacy Policy'),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 24),
                         ],

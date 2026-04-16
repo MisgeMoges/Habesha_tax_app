@@ -65,9 +65,14 @@ class _ClientEmployeeManagementScreenState
     _joiningDateController.text = DateFormat(
       'yyyy-MM-dd',
     ).format(DateTime.now());
-    _loadClientId();
     _loadEmployees();
     _loadPayrollPeriods();
+  }
+
+  Future<bool> _ensureClientIdLoaded() async {
+    if (_clientId != null && _clientId!.isNotEmpty) return true;
+    await _loadClientId();
+    return _clientId != null && _clientId!.isNotEmpty;
   }
 
   Future<void> _loadPayrollPeriods() async {
@@ -162,11 +167,19 @@ class _ClientEmployeeManagementScreenState
     });
 
     try {
+      final hasClient = await _ensureClientIdLoaded();
+      if (!hasClient) {
+        throw Exception(_clientIdError ?? 'Client record not found');
+      }
+
       final response = await _client.get(
         '/api/resource/${FrappeConfig.clientEmployeeDoctype}',
         queryParameters: {
+          'filters': jsonEncode([
+            [FrappeConfig.clientEmployeeClientField, '=', _clientId],
+          ]),
           'fields':
-              '["name","${FrappeConfig.clientEmployeeNameField}","${FrappeConfig.clientEmployeeHourlyRateField}","${FrappeConfig.clientEmployeeStatusField}"]',
+              '["name","${FrappeConfig.clientEmployeeClientField}","${FrappeConfig.clientEmployeeNameField}","${FrappeConfig.clientEmployeeHourlyRateField}","${FrappeConfig.clientEmployeeStatusField}"]',
           'order_by': 'modified desc',
           'limit_page_length': '100',
         },
@@ -177,6 +190,15 @@ class _ClientEmployeeManagementScreenState
         _employees
           ..clear()
           ..addAll(data.map((e) => Map<String, dynamic>.from(e as Map)));
+
+        final stillSelected = _employees.any(
+          (e) => e['name']?.toString() == _selectedEmployeeIdForPayroll,
+        );
+        if (!stillSelected) {
+          _selectedEmployeeIdForPayroll = null;
+          _selectedEmployeeNameForPayroll = null;
+          _payrollEntries.clear();
+        }
       } else {
         throw Exception('Invalid employee data');
       }
@@ -191,13 +213,24 @@ class _ClientEmployeeManagementScreenState
   }
 
   Future<Map<String, dynamic>> _fetchEmployeeDetails(String employeeId) async {
+    final hasClient = await _ensureClientIdLoaded();
+    if (!hasClient) {
+      throw Exception(_clientIdError ?? 'Client record not found');
+    }
+
     final response = await _client.get(
       '/api/resource/${FrappeConfig.clientEmployeeDoctype}/$employeeId',
     );
 
     final data = response['data'] ?? response['message'];
     if (data is Map) {
-      return Map<String, dynamic>.from(data);
+      final employee = Map<String, dynamic>.from(data);
+      final employeeClient = employee[FrappeConfig.clientEmployeeClientField]
+          ?.toString();
+      if (employeeClient == null || employeeClient != _clientId) {
+        throw Exception('Employee does not belong to the logged in client');
+      }
+      return employee;
     }
     throw Exception('Invalid employee data');
   }

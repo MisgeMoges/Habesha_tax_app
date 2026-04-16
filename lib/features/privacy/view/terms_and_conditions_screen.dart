@@ -1,77 +1,80 @@
 import 'package:flutter/material.dart';
 
-class PrivacyPolicyScreen extends StatelessWidget {
-  const PrivacyPolicyScreen({super.key});
+class TermsAndConditionsScreen extends StatelessWidget {
+  const TermsAndConditionsScreen({super.key});
 
   static const String _lastUpdated = 'March 31, 2026';
 
   static const List<_LegalSection> _sections = [
     _LegalSection(
-      title: '1. Information We Collect',
+      title: '1. Acceptance of Terms',
       body:
-          'We may collect account details (name, email, phone), profile information, tax and finance records you enter, uploaded files (such as receipts or company logo), device and diagnostic information, and support messages.',
+          'By accessing or using Habesha Tax App, you agree to these Terms and all applicable laws. If you do not agree, do not use the service.',
     ),
     _LegalSection(
-      title: '2. How We Use Information',
+      title: '2. Eligibility and Account',
       body:
-          'We use your information to create and manage your account, provide tax and financial features, generate summaries and reports, improve app stability, and respond to support requests.',
+          'You are responsible for maintaining the confidentiality of your account credentials and for all activities under your account.',
     ),
     _LegalSection(
-      title: '3. Legal Basis and Consent',
+      title: '3. Service Scope',
       body:
-          'By creating an account and using the app, you consent to processing needed for service delivery. Where required by law, we request specific consent for optional processing.',
+          'The app helps you organize tax-related and financial records. It does not replace legal, tax, or accounting advice from licensed professionals.',
     ),
     _LegalSection(
-      title: '4. Data Sharing',
+      title: '4. User Content and Conduct',
       body:
-          'We do not sell your personal data. We may share data with hosting, analytics, security, and payment providers strictly to operate the service, and with authorities when legally required.',
+          'You retain ownership of your data. You must not upload unlawful, infringing, malicious, or misleading content. You are responsible for data accuracy.',
     ),
     _LegalSection(
-      title: '5. Data Retention',
+      title: '5. Payments and Billing',
       body:
-          'We retain data while your account is active and as necessary for legal, accounting, and fraud-prevention obligations. We delete or anonymize data when retention is no longer required.',
+          'If paid features are offered, pricing and renewal terms are shown before purchase. Taxes and payment processor terms may apply.',
     ),
     _LegalSection(
-      title: '6. Security',
+      title: '6. Availability and Updates',
       body:
-          'We apply industry-standard safeguards such as encrypted transport, controlled access, and monitoring. No system is fully risk-free, but we continuously improve security controls.',
+          'We may update, suspend, or discontinue features to improve quality, security, and compliance. We aim to provide reliable service but do not guarantee uninterrupted availability.',
     ),
     _LegalSection(
-      title: '7. Your Rights',
+      title: '7. Intellectual Property',
       body:
-          'Depending on your jurisdiction, you may request access, correction, deletion, export, or restriction of your personal data. You may also object to certain processing activities.',
+          'All app content, branding, and software are owned by Habesha Tax or licensors, except user-submitted content.',
     ),
     _LegalSection(
-      title: '8. Children\'s Privacy',
+      title: '8. Limitation of Liability',
       body:
-          'This service is not intended for children under the age required by local law. We do not knowingly collect personal information from children without proper authorization.',
+          'To the maximum extent permitted by law, we are not liable for indirect or consequential losses arising from your use of the app.',
     ),
     _LegalSection(
-      title: '9. International Transfers',
+      title: '9. Termination',
       body:
-          'If data is processed outside your country, we use reasonable safeguards and contractual protections to maintain privacy standards.',
+          'You may stop using the service at any time. We may suspend or terminate accounts for violations of these Terms or legal requirements.',
     ),
     _LegalSection(
-      title: '10. Contact',
+      title: '10. Account Deletion',
       body:
-          'For privacy requests or complaints, contact: privacy@habeshatax.com. You can also use the support channel in the app profile section.',
+          'You may request permanent deletion directly in the app from Profile > Delete Account. Deletion effects may be immediate or subject to legal retention requirements.',
     ),
     _LegalSection(
-      title: '11. Account Deletion',
+      title: '11. Governing Law and Contact',
       body:
-          'You can delete your account in-app from Profile > Delete Account. Deletion permanently removes access and may remove associated records subject to legal retention obligations.',
+          'These Terms are governed by applicable local laws. For legal questions, contact: legal@habeshatax.com.',
     ),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Privacy Policy'), centerTitle: true),
+      appBar: AppBar(
+        title: const Text('Terms & Conditions'),
+        centerTitle: true,
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           _LegalHeader(
-            title: 'Habesha Tax Privacy Policy',
+            title: 'Habesha Tax Terms & Conditions',
             subtitle: 'Last updated: $_lastUpdated',
           ),
           const SizedBox(height: 12),
@@ -83,7 +86,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            'By using this app, you acknowledge that you have read and understood this Privacy Policy.',
+            'By creating an account or using this app, you agree to these Terms.',
             style: TextStyle(color: Colors.black54),
           ),
           const SizedBox(height: 20),

@@ -79,7 +79,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       event.firstName,
       event.lastName,
       event.mobileNumber,
-      event.userCategory,
       event.businessType,
       event.businessStatus,
       event.tinNumber,
@@ -210,6 +209,22 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   String _friendlyAuthMessage(String? raw, {required String action}) {
     final message = (raw ?? '').trim();
     final lower = message.toLowerCase();
+
+    if (lower.contains('account_pending_activation')) {
+      return 'Your account is registered but not activated yet. You can login after the system admin activates your account. You will receive an email.';
+    }
+
+    if (lower.contains('account_deleted_or_not_found')) {
+      return 'Account does not exist. Please check your credentials and try again.';
+    }
+
+    if (lower.contains('account_deleted_cannot_recreate')) {
+      return 'This account was deleted and cannot be created again. For support contact details, please check the Terms & Conditions and Privacy Policy sections.';
+    }
+
+    if (lower.contains('account_already_exists')) {
+      return 'An account with this email already exists. Please log in.';
+    }
 
     final isInvalidCredentials =
         lower.contains('401') ||

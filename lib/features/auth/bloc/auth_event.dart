@@ -30,14 +30,13 @@ class SignUpRequested extends AuthEvent {
   final String firstName;
   final String lastName;
   final String mobileNumber;
-  final String userCategory;
   final String businessType;
   final String businessStatus;
   final String tinNumber;
   final String taxCategory;
   final String addressLine1;
   final String? addressLine2;
-  final String? postalCode;
+  final String postalCode;
   final String city;
   final String state;
   final String country;
@@ -52,14 +51,13 @@ class SignUpRequested extends AuthEvent {
     required this.firstName,
     required this.lastName,
     required this.mobileNumber,
-    required this.userCategory,
     required this.businessType,
     required this.businessStatus,
     required this.tinNumber,
     required this.taxCategory,
     required this.addressLine1,
     this.addressLine2,
-    this.postalCode,
+    required this.postalCode,
     required this.city,
     required this.state,
     required this.country,
@@ -76,7 +74,6 @@ class SignUpRequested extends AuthEvent {
     firstName,
     lastName,
     mobileNumber,
-    userCategory,
     businessType,
     businessStatus,
     tinNumber,

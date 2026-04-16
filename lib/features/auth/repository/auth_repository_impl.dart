@@ -16,15 +16,21 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Stream<Either<Failure, User?>> get authStateChanges async* {
-    if (await networkInfo.isConnected) {
-      yield* remoteDataSource.authStateChanges.asyncMap((user) async {
+    try {
+      yield* remoteDataSource.authStateChanges.map((user) {
         if (user == null) {
           return const Right(null);
         }
         return Right(user);
       });
-    } else {
-      yield const Left(NetworkFailure());
+    } catch (e) {
+      if (!await networkInfo.isConnected) {
+        yield const Left(
+          NetworkFailure('No internet or local network connection.'),
+        );
+      } else {
+        yield Left(AuthFailure(e.toString()));
+      }
     }
   }
 
@@ -56,14 +62,13 @@ class AuthRepositoryImpl implements AuthRepository {
     String firstName,
     String lastName,
     String mobileNumber,
-    String userCategory,
     String businessType,
     String businessStatus,
     String tinNumber,
     String taxCategory,
     String addressLine1,
     String? addressLine2,
-    String? postalCode,
+    String postalCode,
     String city,
     String state,
     String country,
@@ -79,7 +84,6 @@ class AuthRepositoryImpl implements AuthRepository {
         firstName,
         lastName,
         mobileNumber,
-        userCategory,
         businessType,
         businessStatus,
         tinNumber,
@@ -136,15 +140,16 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<Either<Failure, void>> signOut() async {
-    if (await networkInfo.isConnected) {
-      try {
-        await remoteDataSource.signOut();
-        return const Right(null);
-      } catch (e) {
-        return Left(AuthFailure(e.toString()));
+    try {
+      await remoteDataSource.signOut();
+      return const Right(null);
+    } catch (e) {
+      if (!await networkInfo.isConnected) {
+        return const Left(
+          NetworkFailure('No internet or local network connection.'),
+        );
       }
-    } else {
-      return const Left(NetworkFailure());
+      return Left(AuthFailure(e.toString()));
     }
   }
 

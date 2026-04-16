@@ -9,6 +9,9 @@ import '../../auth/bloc/auth_event.dart';
 import '../../auth/bloc/auth_state.dart';
 import '../../auth/views/auth_screen.dart';
 import '../../employee/view/client_employee_management_screen.dart';
+import '../../privacy/view/delete_account_screen.dart';
+import '../../privacy/view/privacy_policy_screen.dart';
+import '../../privacy/view/terms_and_conditions_screen.dart';
 import '../../transaction/view/invoice/invoice_screen.dart';
 import 'profile_edit_screen.dart';
 
@@ -108,6 +111,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
         label: 'Generate Invoice',
         color: Colors.indigo,
         screen: InvoiceScreen(),
+      ),
+      _ProfileItem(
+        icon: Icons.gavel_outlined,
+        label: 'Terms & Conditions',
+        color: Colors.teal,
+        screen: TermsAndConditionsScreen(),
+      ),
+      _ProfileItem(
+        icon: Icons.privacy_tip_outlined,
+        label: 'Privacy Policy',
+        color: Colors.blueGrey,
+        screen: PrivacyPolicyScreen(),
+      ),
+      _ProfileItem(
+        icon: Icons.delete_forever_outlined,
+        label: 'Delete Account',
+        color: Colors.redAccent,
+        screen: DeleteAccountScreen(),
       ),
       _ProfileItem(icon: Icons.logout, label: 'Logout', color: Colors.red),
     ];

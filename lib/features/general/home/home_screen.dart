@@ -84,7 +84,9 @@ class _HomeScreenState extends State<HomeScreen> {
             FrappeConfig.transactionNoteField,
           ]),
           'order_by': 'creation desc',
-          'limit_page_length': '10',
+          // Fetch enough rows so income/expense totals are accurate.
+          // UI still shows only latest 5 in the list.
+          'limit_page_length': '1000',
         },
       );
 
@@ -176,7 +178,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final expenseTotal = _transactions
         .where((tx) => !tx.isIncome)
         .fold<double>(0, (sum, tx) => sum + tx.amount.abs());
-    final totalBalance = incomeTotal + expenseTotal;
+    final netBalance = incomeTotal - expenseTotal;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -203,12 +205,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Total Transaction',
+                      'Net Balance',
                       style: TextStyle(fontSize: 14, color: Colors.white70),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      _currency.format(totalBalance),
+                      _currency.format(netBalance),
                       style: const TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.bold,

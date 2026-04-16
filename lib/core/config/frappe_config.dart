@@ -3,20 +3,20 @@ class FrappeConfig {
 
   static const String baseUrl = String.fromEnvironment(
     'FRAPPE_BASE_URL',
-    // defaultValue: 'http://192.168.2.64:8000',
-    defaultValue: 'http://207.180.214.194:8080', //server url
+    defaultValue: 'http://192.168.0.182:8000',
+    // defaultValue: 'http://207.180.214.194:8080',
   );
 
   static const String apiKey = String.fromEnvironment(
     'FRAPPE_API_KEY',
-    // defaultValue: 'c3637bac574b748',
-    defaultValue: '088cd0a15dd8861', //server key
+    defaultValue: 'c3637bac574b748',
+    // defaultValue: '088cd0a15dd8861',
   );
 
   static const String apiSecret = String.fromEnvironment(
     'FRAPPE_API_SECRET',
-    // defaultValue: '183429d6ef3227b',
-    defaultValue: '8fa8ef56cd36587', //server secret
+    defaultValue: '183429d6ef3227b',
+    // defaultValue: '8fa8ef56cd36587',
   );
 
   static bool get useTokenAuth => apiKey.isNotEmpty && apiSecret.isNotEmpty;
@@ -43,10 +43,11 @@ class FrappeConfig {
   static const String userLastNameField = 'last_name';
   static const String userFullNameField = 'full_name';
   static const String userUsernameField = 'username';
+  static const String userEnabledField = 'enabled';
   static const String userLanguageField = 'language';
   static const String userTimeZoneField = 'time_zone';
   static const String userCountryField = 'country';
-  static const String userCategoryField = 'user_category';
+  // static const String userCategoryField = 'user_category';
   static const String userMobileNoField = 'mobile_no';
 
   static const String bookingClientField = 'client';
@@ -183,6 +184,8 @@ class FrappeConfig {
   static const String chatMessageReceiverField = 'receiver';
   static const String chatMessageBodyField = 'message';
   static const String chatMessageTimestampField = 'timestamp';
+  static const String chatMessageCreatedAtField = 'creation';
+  static const String chatMessageCreationIsoField = 'creation_iso';
 
   // Realtime socket configuration
   static const String socketPath = '/socket.io';

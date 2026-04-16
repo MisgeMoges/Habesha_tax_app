@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../auth/views/auth_screen.dart';
 import 'onboarding_content.dart';
 import '../../../core/constants/app_color.dart';
@@ -11,6 +12,7 @@ class OnboardingScreen extends StatefulWidget {
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
+  static const String _onboardingCompletedKey = 'onboarding_completed';
   final PageController _controller = PageController();
   int currentIndex = 0;
 
@@ -35,7 +37,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     },
   ];
 
-  void goToHome() {
+  Future<void> goToHome() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_onboardingCompletedKey, true);
+    if (!mounted) return;
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (_) => const AuthScreen()),

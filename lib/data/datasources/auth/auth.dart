@@ -13,14 +13,13 @@ abstract class AuthRemoteDataSource {
     String firstName,
     String lastName,
     String mobileNumber,
-    String userCategory,
     String businessType,
     String businessStatus,
     String tinNumber,
     String taxCategory,
     String addressLine1,
     String? addressLine2,
-    String? postalCode,
+    String postalCode,
     String city,
     String state,
     String country,
@@ -47,6 +46,11 @@ abstract class AuthRemoteDataSource {
 }
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
+  static const String _pendingApprovalCode = 'account_pending_activation';
+  static const String _deletedLoginCode = 'account_deleted_or_not_found';
+  static const String _deletedRecreateCode = 'account_deleted_cannot_recreate';
+  static const String _alreadyExistsCode = 'account_already_exists';
+
   final FrappeClient _client;
   User? _cachedUser;
 
@@ -59,14 +63,55 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
 
   @override
   Future<User> signInWithEmailAndPassword(String email, String password) async {
+    final normalizedEmail = email.trim();
+
+    final preLoginRecord = await _fetchUserRecordByEmail(normalizedEmail);
+    if (preLoginRecord != null &&
+        !_isUserEnabled(preLoginRecord[FrappeConfig.userEnabledField])) {
+      final status = await _fetchClientStatusByEmail(normalizedEmail);
+      if (_isDeletedStatus(status)) {
+        throw Exception(_deletedLoginCode);
+      }
+      throw Exception(_pendingApprovalCode);
+    }
+
     await _client.login(email, password);
-    final current = await _getCurrentUser();
-    if (current != null) return current;
-    final fallback = await _fetchUserByEmail(email);
-    if (fallback != null) {
+    final currentRecord = await _getCurrentUserRecord();
+    if (currentRecord != null) {
+      if (!_isUserEnabled(currentRecord[FrappeConfig.userEnabledField])) {
+        await _safeLogout();
+        final status = await _fetchClientStatusByEmail(normalizedEmail);
+        if (_isDeletedStatus(status)) {
+          throw Exception(_deletedLoginCode);
+        }
+        throw Exception(_pendingApprovalCode);
+      }
+      final current = _mapUser(
+        currentRecord,
+        fallbackId: currentRecord[FrappeConfig.userIdField]?.toString(),
+      );
+      _cachedUser = current;
+      return current;
+    }
+
+    final fallbackRecord = await _fetchUserRecordByEmail(normalizedEmail);
+    if (fallbackRecord != null) {
+      if (!_isUserEnabled(fallbackRecord[FrappeConfig.userEnabledField])) {
+        await _safeLogout();
+        final status = await _fetchClientStatusByEmail(normalizedEmail);
+        if (_isDeletedStatus(status)) {
+          throw Exception(_deletedLoginCode);
+        }
+        throw Exception(_pendingApprovalCode);
+      }
+      final fallback = _mapUser(
+        fallbackRecord,
+        fallbackId: fallbackRecord[FrappeConfig.userIdField]?.toString(),
+      );
       _cachedUser = fallback;
       return fallback;
     }
+
     throw Exception('Unable to load user profile after login');
   }
 
@@ -77,14 +122,13 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     String firstName,
     String lastName,
     String mobileNumber,
-    String userCategory,
     String businessType,
     String businessStatus,
     String tinNumber,
     String taxCategory,
     String addressLine1,
     String? addressLine2,
-    String? postalCode,
+    String postalCode,
     String city,
     String state,
     String country,
@@ -94,6 +138,19 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     String? vatNumber,
   ) async {
     final trimmedEmail = email.trim();
+
+    final existingRecord = await _fetchUserRecordByEmail(trimmedEmail);
+    if (existingRecord != null) {
+      if (!_isUserEnabled(existingRecord[FrappeConfig.userEnabledField])) {
+        final status = await _fetchClientStatusByEmail(trimmedEmail);
+        if (_isDeletedStatus(status)) {
+          throw Exception(_deletedRecreateCode);
+        }
+        throw Exception(_pendingApprovalCode);
+      }
+      throw Exception(_alreadyExistsCode);
+    }
+
     final inferredUsername = trimmedEmail.contains('@')
         ? trimmedEmail.split('@').first
         : trimmedEmail;
@@ -110,7 +167,6 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       'language': 'en',
       'time_zone': 'UTC',
       'country': country,
-      'user_category': userCategory,
       'password': password,
     };
 
@@ -135,7 +191,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       'tax_category': taxCategory,
       'address_line_1': addressLine1,
       'address_line_2': addressLine2?.trim() ?? '',
-      'postal_code': postalCode?.trim() ?? '',
+      'postal_code': postalCode.trim(),
       'city': city,
       'state': state,
       FrappeConfig.clientCompanyNameField: companyName?.trim() ?? '',
@@ -158,18 +214,14 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       throw Exception(response['message']?.toString() ?? 'Registration failed');
     }
 
-    await _client.login(trimmedEmail, password);
-    final current = await _getCurrentUser();
-    if (current != null) {
-      _cachedUser = current;
-      return current;
+    final createdUserRecord = await _fetchUserRecordByEmail(trimmedEmail);
+    if (createdUserRecord != null &&
+        !_isUserEnabled(createdUserRecord[FrappeConfig.userEnabledField])) {
+      await _safeLogout();
+      throw Exception(_pendingApprovalCode);
     }
-    final fallback = await _fetchUserByEmail(trimmedEmail);
-    if (fallback != null) {
-      _cachedUser = fallback;
-      return fallback;
-    }
-    throw Exception('Registration succeeded but user profile not found');
+
+    return signInWithEmailAndPassword(trimmedEmail, password);
   }
 
   @override
@@ -248,32 +300,41 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
 
   Future<User?> _getCurrentUser() async {
     try {
-      final response = await _client.get(
-        '/api/method/frappe.auth.get_logged_user',
-      );
-      print('Current user response: $response');
-      final userId = response['message']?.toString();
-      if (userId == null || userId.isEmpty) return _cachedUser;
-
-      final userResponse = await _client.get(
-        '/api/resource/${FrappeConfig.userDoctype}/$userId',
-      );
-      final data = userResponse['data'] as Map<String, dynamic>?;
+      final data = await _getCurrentUserRecord();
       if (data == null) return _cachedUser;
-      _cachedUser = _mapUser(data, fallbackId: userId);
+      _cachedUser = _mapUser(
+        data,
+        fallbackId: data[FrappeConfig.userIdField]?.toString(),
+      );
       return _cachedUser;
     } catch (_) {
       return _cachedUser;
     }
   }
 
-  Future<User?> _fetchUserByEmail(String email) async {
+  Future<Map<String, dynamic>?> _getCurrentUserRecord() async {
+    final response = await _client.get(
+      '/api/method/frappe.auth.get_logged_user',
+      useTokenAuth: false,
+    );
+    final userId = response['message']?.toString();
+    if (userId == null || userId.isEmpty) return null;
+
+    final userResponse = await _client.get(
+      '/api/resource/${FrappeConfig.userDoctype}/$userId',
+      useTokenAuth: false,
+    );
+    return userResponse['data'] as Map<String, dynamic>?;
+  }
+
+  Future<Map<String, dynamic>?> _fetchUserRecordByEmail(String email) async {
     final response = await _client.get(
       '/api/resource/${FrappeConfig.userDoctype}',
       queryParameters: {
         'filters': jsonEncode([
           [FrappeConfig.userEmailField, '=', email],
         ]),
+        'fields': jsonEncode([FrappeConfig.userIdField]),
         'limit_page_length': '1',
       },
     );
@@ -285,11 +346,53 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       final userResponse = await _client.get(
         '/api/resource/${FrappeConfig.userDoctype}/$recordId',
       );
-      final userData = userResponse['data'] as Map<String, dynamic>?;
-      if (userData == null) return null;
-      return _mapUser(userData, fallbackId: recordId);
+      return userResponse['data'] as Map<String, dynamic>?;
     }
     return null;
+  }
+
+  bool _isUserEnabled(dynamic value) {
+    if (value is bool) return value;
+    if (value is num) return value == 1;
+    if (value is String) {
+      final normalized = value.trim().toLowerCase();
+      return normalized == '1' || normalized == 'true' || normalized == 'yes';
+    }
+    return false;
+  }
+
+  Future<void> _safeLogout() async {
+    try {
+      await _client.logout();
+    } catch (_) {}
+  }
+
+  Future<String?> _fetchClientStatusByEmail(String email) async {
+    try {
+      final response = await _client.get(
+        '/api/resource/${FrappeConfig.clientDoctype}',
+        queryParameters: {
+          'filters': jsonEncode([
+            [FrappeConfig.clientUserIdField, '=', email],
+          ]),
+          'fields': jsonEncode([FrappeConfig.clientStatusField]),
+          'limit_page_length': '1',
+        },
+      );
+      final data = response['data'];
+      if (data is List && data.isNotEmpty) {
+        final row = data.first as Map<String, dynamic>;
+        return row[FrappeConfig.clientStatusField]?.toString();
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool _isDeletedStatus(String? status) {
+    final normalized = (status ?? '').trim().toLowerCase();
+    return normalized == 'inactive' || normalized == 'deleted';
   }
 
   User _mapUser(Map<String, dynamic> data, {String? fallbackId}) {

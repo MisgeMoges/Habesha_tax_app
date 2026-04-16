@@ -243,6 +243,7 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
       //     },
       //   },
       // );
+      await _loadMessages(selectedClientId, showLoader: false);
       await _refreshUnreadCount();
     } catch (e) {
       if (attachmentUrl != null && attachmentName != null) {
@@ -319,9 +320,11 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
             FrappeConfig.chatMessageSenderField,
             FrappeConfig.chatMessageReceiverField,
             FrappeConfig.chatMessageBodyField,
+            FrappeConfig.chatMessageCreationIsoField,
             FrappeConfig.chatMessageTimestampField,
+            FrappeConfig.chatMessageCreatedAtField,
           ]),
-          'order_by': '${FrappeConfig.chatMessageTimestampField} asc',
+          'order_by': '${FrappeConfig.chatMessageCreatedAtField} asc',
           'limit_page_length': '200',
         },
       );
@@ -334,12 +337,7 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
           return {
             'text': item[FrappeConfig.chatMessageBodyField]?.toString() ?? '',
             'isSentByUser': sender == _currentUserId,
-            'timestamp':
-                DateTime.tryParse(
-                  item[FrappeConfig.chatMessageTimestampField]?.toString() ??
-                      '',
-                ) ??
-                DateTime.now(),
+            'timestamp': _parseServerChatTime(item),
           };
         }).toList();
         final history = chatHistories[clientId];
@@ -367,6 +365,22 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
     }
   }
 
+  void _scrollToLatest({bool animated = true}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      final target = _scrollController.position.maxScrollExtent;
+      if (animated) {
+        _scrollController.animateTo(
+          target,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
+      } else {
+        _scrollController.jumpTo(target);
+      }
+    });
+  }
+
   Future<void> _markConversationAsRead(String clientId) async {
     final history = chatHistories[clientId] ?? const [];
     DateTime? latestIncoming;
@@ -382,32 +396,46 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
       _lastSeenBySender[clientId] = latestIncoming;
     }
 
-    // Mark unread messages from this client as read on the server (is_read = 1)
+    // Prefer a bulk server method to mark unread messages as read.
+    // Fallback to per-row resource updates when method is unavailable.
     try {
       if (_currentUserId.isEmpty) return;
-      final resp = await _client.get(
-        '/api/resource/${FrappeConfig.chatMessageDoctype}',
-        queryParameters: {
-          'filters': jsonEncode([
-            [FrappeConfig.chatMessageSenderField, '=', clientId],
-            [FrappeConfig.chatMessageReceiverField, '=', _currentUserId],
-            ['is_read', '=', 0],
-          ]),
-          'fields': jsonEncode(['name']),
-          'limit_page_length': '500',
-        },
-      );
-      final data = resp['data'];
-      if (data is List) {
-        for (final row in data) {
-          final name = row['name']?.toString();
-          if (name == null || name.isEmpty) continue;
-          try {
-            await _client.put(
-              '/api/resource/${FrappeConfig.chatMessageDoctype}/$name',
-              body: {'is_read': 1},
-            );
-          } catch (_) {}
+      var markedWithBulkMethod = false;
+      try {
+        await _client.post(
+          '/api/method/habesha_tax.habesha_tax.doctype.chat_message.chat_message.mark_messages_as_read',
+          body: {'sender': clientId, 'receiver': _currentUserId},
+        );
+        markedWithBulkMethod = true;
+      } catch (_) {
+        markedWithBulkMethod = false;
+      }
+
+      if (!markedWithBulkMethod) {
+        final resp = await _client.get(
+          '/api/resource/${FrappeConfig.chatMessageDoctype}',
+          queryParameters: {
+            'filters': jsonEncode([
+              [FrappeConfig.chatMessageSenderField, '=', clientId],
+              [FrappeConfig.chatMessageReceiverField, '=', _currentUserId],
+              ['is_read', '=', 0],
+            ]),
+            'fields': jsonEncode(['name']),
+            'limit_page_length': '500',
+          },
+        );
+        final data = resp['data'];
+        if (data is List) {
+          for (final row in data) {
+            final name = row['name']?.toString();
+            if (name == null || name.isEmpty) continue;
+            try {
+              await _client.put(
+                '/api/resource/${FrappeConfig.chatMessageDoctype}/$name',
+                body: {'is_read': 1},
+              );
+            } catch (_) {}
+          }
         }
       }
     } catch (_) {}
@@ -425,9 +453,10 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
           ]),
           'fields': jsonEncode([
             FrappeConfig.chatMessageSenderField,
+            FrappeConfig.chatMessageCreatedAtField,
             FrappeConfig.chatMessageTimestampField,
           ]),
-          'order_by': '${FrappeConfig.chatMessageTimestampField} desc',
+          'order_by': '${FrappeConfig.chatMessageCreatedAtField} desc',
           'limit_page_length': '500',
         },
       );
@@ -443,9 +472,10 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
             FrappeConfig.chatMessageSenderField,
             FrappeConfig.chatMessageReceiverField,
             FrappeConfig.chatMessageBodyField,
+            FrappeConfig.chatMessageCreatedAtField,
             FrappeConfig.chatMessageTimestampField,
           ]),
-          'order_by': '${FrappeConfig.chatMessageTimestampField} desc',
+          'order_by': '${FrappeConfig.chatMessageCreatedAtField} desc',
           'limit_page_length': '500',
         },
       );
@@ -468,12 +498,7 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
 
           latestMessageByClient[partnerId] = {
             'text': item[FrappeConfig.chatMessageBodyField]?.toString() ?? '',
-            'timestamp':
-                DateTime.tryParse(
-                  item[FrappeConfig.chatMessageTimestampField]?.toString() ??
-                      '',
-                ) ??
-                DateTime.now(),
+            'timestamp': _parseServerChatTime(item),
           };
         }
       }
@@ -591,6 +616,38 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
 
   String _formatTimestamp(DateTime time) {
     return DateFormat('hh:mm a').format(time);
+  }
+
+  DateTime _parseServerChatTime(Map<String, dynamic> item) {
+    DateTime? parseServerTime(String value) {
+      final raw = value.trim();
+      if (raw.isEmpty) return null;
+
+      final normalized = raw.replaceFirst(' ', 'T');
+      final parsed = DateTime.tryParse(normalized);
+      if (parsed == null) return null;
+
+      // If server includes timezone/UTC info, convert to device local time.
+      // If timezone is missing, keep parsed local value as-is.
+      return parsed.isUtc ? parsed.toLocal() : parsed;
+    }
+
+    final creationIso = parseServerTime(
+      item[FrappeConfig.chatMessageCreationIsoField]?.toString() ?? '',
+    );
+    if (creationIso != null) return creationIso;
+
+    final createdAt = parseServerTime(
+      item[FrappeConfig.chatMessageCreatedAtField]?.toString() ?? '',
+    );
+    if (createdAt != null) return createdAt;
+
+    final legacyTimestamp = parseServerTime(
+      item[FrappeConfig.chatMessageTimestampField]?.toString() ?? '',
+    );
+    if (legacyTimestamp != null) return legacyTimestamp;
+
+    return DateTime.now();
   }
 
   String _formatConversationTimestamp(DateTime time) {
@@ -774,12 +831,13 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
             timestamp,
             style: TextStyle(fontSize: 12, color: Colors.grey),
           ),
-          onTap: () {
+          onTap: () async {
             setState(() {
               selectedClientId = client['id'];
               isSearching = false;
             });
-            _loadMessages(client['id']);
+            await _loadMessages(client['id']);
+            _scrollToLatest(animated: false);
           },
         );
       },

@@ -22,17 +22,6 @@ class UserFriendlyError {
       return 'Unable to connect right now. Please check your internet connection and try again.';
     }
 
-    final isServer =
-        lower.contains('500') ||
-        lower.contains('502') ||
-        lower.contains('503') ||
-        lower.contains('504') ||
-        lower.contains('frappe request failed') ||
-        lower.contains('internal server error');
-    if (isServer) {
-      return 'Our server is temporarily unavailable. Please try again in a moment.';
-    }
-
     final isAuth =
         lower.contains('401') ||
         lower.contains('403') ||
@@ -45,6 +34,24 @@ class UserFriendlyError {
         return 'Invalid email or password. Please try again.';
       }
       return 'Your session has expired. Please sign in again.';
+    }
+
+    final isPermission =
+        lower.contains('not permitted') ||
+        lower.contains('insufficient permission') ||
+        lower.contains('permission denied');
+    if (isPermission) {
+      return 'Your account does not have permission to access this data yet. Please contact support.';
+    }
+
+    final isServer =
+        lower.contains('500') ||
+        lower.contains('502') ||
+        lower.contains('503') ||
+        lower.contains('504') ||
+        lower.contains('internal server error');
+    if (isServer) {
+      return 'Our server is temporarily unavailable. Please try again in a moment.';
     }
 
     if (lower.contains('client record not found')) {

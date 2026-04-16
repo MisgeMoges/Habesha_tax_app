@@ -310,7 +310,13 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                     const SizedBox(height: 12),
                     _buildTextField(
                       controller: _postalCodeController,
-                      label: 'Postal Code (Optional)',
+                      label: 'Postal Code *',
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Postal Code is required';
+                        }
+                        return null;
+                      },
                     ),
                     SizedBox(
                       width: double.infinity,
