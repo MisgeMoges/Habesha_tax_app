@@ -506,9 +506,7 @@ class _ClientEmployeeManagementScreenState
         'position': employeeData[FrappeConfig.clientEmployeePositionField],
       };
 
-      print('Sending payroll data: $payload'); // Debugging
-
-      // Call the custom endpoint instead of direct document update
+    
       final response = await _client.post(
         'api/method/habesha_tax.habesha_tax.doctype.client_employee.client_employee.post_employee_payroll', // Adjust this path to match your app's actual path
         body: {
@@ -518,7 +516,6 @@ class _ClientEmployeeManagementScreenState
         },
       );
 
-      print('Response: $response'); // Debugging
 
       // Reload the payroll entries after successful save
       await _loadPayrollEntries(employeeId);

@@ -247,8 +247,12 @@ class InvoiceService {
 
   Future<void> downloadInvoicePdf(String docName) async {
     final baseUrl = FrappeConfig.baseUrl;
+    // final url = Uri.parse(
+    //   '$baseUrl/api/method/frappe.utils.print_format.download_pdf?doctype=${Uri.encodeComponent(FrappeConfig.clientInvoiceDoctype)}&name=${Uri.encodeComponent(docName)}',
+    // );
+
     final url = Uri.parse(
-      '$baseUrl/api/method/frappe.utils.print_format.download_pdf?doctype=${Uri.encodeComponent(FrappeConfig.clientInvoiceDoctype)}&name=${Uri.encodeComponent(docName)}',
+      '$baseUrl/api/method/habesha_tax.habesha_tax.doctype.client_invoices.client_invoices.custom_download_pdf?doctype=${Uri.encodeComponent(FrappeConfig.clientInvoiceDoctype)}&name=${Uri.encodeComponent(docName)}',
     );
 
     final headers = <String, String>{'Accept': 'application/pdf'};

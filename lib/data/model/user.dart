@@ -5,17 +5,7 @@ class User {
   final String lastName;
   final String mobileNumber;
 
-  // Define all possible member categories
-  // static const List<String> validCategories = [
-  //   'Clergy',
-  //   'Member',
-  //   'Priest',
-  //   'Deacon',
-  //   'Sunday Students Member',
-  //   'Elder',
-  //   'Youth',
-  //   'Children'
-  // ];
+ 
 
   User({
     required this.id,

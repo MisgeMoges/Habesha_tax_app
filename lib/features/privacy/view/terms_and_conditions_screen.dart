@@ -3,63 +3,71 @@ import 'package:flutter/material.dart';
 class TermsAndConditionsScreen extends StatelessWidget {
   const TermsAndConditionsScreen({super.key});
 
-  static const String _lastUpdated = 'March 31, 2026';
+  static const String _effectiveDate = '17/04/2026';
 
   static const List<_LegalSection> _sections = [
     _LegalSection(
       title: '1. Acceptance of Terms',
       body:
-          'By accessing or using Habesha Tax App, you agree to these Terms and all applicable laws. If you do not agree, do not use the service.',
+          'By using our mobile application, you agree to these Terms and Conditions. If you do not agree, please do not use the app.',
     ),
     _LegalSection(
-      title: '2. Eligibility and Account',
+      title: '2. Services Provided',
       body:
-          'You are responsible for maintaining the confidentiality of your account credentials and for all activities under your account.',
+          'We provide:\n• Self-Assessment tax return services\n• Bookkeeping and payroll support\n• Business financial management\n• Home office application-related assistance (non-legal advice)',
     ),
     _LegalSection(
-      title: '3. Service Scope',
+      title: '3. User Responsibilities',
       body:
-          'The app helps you organize tax-related and financial records. It does not replace legal, tax, or accounting advice from licensed professionals.',
+          'You agree to:\n• Provide accurate and complete information\n• Keep your login details secure\n• Update your information when necessary\n• Use the app lawfully',
     ),
     _LegalSection(
-      title: '4. User Content and Conduct',
+      title: '4. Account Registration',
       body:
-          'You retain ownership of your data. You must not upload unlawful, infringing, malicious, or misleading content. You are responsible for data accuracy.',
+          'You must:\n• Be at least 18 years old\n• Provide valid contact details\n• Maintain confidentiality of your account\n\nWe reserve the right to suspend accounts for misuse.',
     ),
     _LegalSection(
-      title: '5. Payments and Billing',
+      title: '5. Fees and Payments',
       body:
-          'If paid features are offered, pricing and renewal terms are shown before purchase. Taxes and payment processor terms may apply.',
+          '• Some services may be paid\n• Fees will be clearly communicated\n• Payments are non-refundable unless stated otherwise',
     ),
     _LegalSection(
-      title: '6. Availability and Updates',
+      title: '6. Tax Responsibility Disclaimer',
       body:
-          'We may update, suspend, or discontinue features to improve quality, security, and compliance. We aim to provide reliable service but do not guarantee uninterrupted availability.',
+          'While we assist with tax preparation:\n• You remain responsible for the accuracy of your information\n• We rely on data you provide\n• HMRC decisions are final',
     ),
     _LegalSection(
-      title: '7. Intellectual Property',
+      title: '7. Limitation of Liability',
       body:
-          'All app content, branding, and software are owned by Habesha Tax or licensors, except user-submitted content.',
+          'We are not liable for:\n• Errors caused by incorrect information you provide\n• Delays from third parties (e.g., HMRC)\n• Indirect or consequential losses',
     ),
     _LegalSection(
-      title: '8. Limitation of Liability',
-      body:
-          'To the maximum extent permitted by law, we are not liable for indirect or consequential losses arising from your use of the app.',
+      title: '8. Data Protection',
+      body: 'Your data is handled according to our Privacy Policy.',
     ),
     _LegalSection(
-      title: '9. Termination',
+      title: '9. Intellectual Property',
       body:
-          'You may stop using the service at any time. We may suspend or terminate accounts for violations of these Terms or legal requirements.',
+          'All content in the app belongs to Habesha Tax & Support Ltd. You may not copy or distribute without permission.',
     ),
     _LegalSection(
-      title: '10. Account Deletion',
+      title: '10. Termination',
       body:
-          'You may request permanent deletion directly in the app from Profile > Delete Account. Deletion effects may be immediate or subject to legal retention requirements.',
+          'We may suspend or terminate access if:\n• You breach these terms\n• Fraudulent activity is suspected\n• Required by law',
     ),
     _LegalSection(
-      title: '11. Governing Law and Contact',
+      title: '11. Changes to Terms',
       body:
-          'These Terms are governed by applicable local laws. For legal questions, contact: legal@habeshatax.com.',
+          'We may update these terms at any time. Continued use means acceptance of changes.',
+    ),
+    _LegalSection(
+      title: '12. Governing Law',
+      body: 'These terms are governed by the laws of England and Wales.',
+    ),
+    _LegalSection(
+      title: '13. Contact Information',
+      body:
+          'Habesha Tax & Support Ltd\nEmail: info@habeshatax.co.uk\nAddress: Allied House 29-39 London Rd, Twickenham TW1 3SZ',
     ),
   ];
 
@@ -74,8 +82,8 @@ class TermsAndConditionsScreen extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         children: [
           _LegalHeader(
-            title: 'Habesha Tax Terms & Conditions',
-            subtitle: 'Last updated: $_lastUpdated',
+            title: 'Habesha Tax & Support Ltd',
+            subtitle: 'Effective Date: $_effectiveDate',
           ),
           const SizedBox(height: 12),
           ..._sections.map(
@@ -86,7 +94,7 @@ class TermsAndConditionsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            'By creating an account or using this app, you agree to these Terms.',
+            'By creating an account or using this app, you agree to these Terms and Conditions.',
             style: TextStyle(color: Colors.black54),
           ),
           const SizedBox(height: 20),

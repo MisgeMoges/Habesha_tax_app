@@ -3,63 +3,79 @@ import 'package:flutter/material.dart';
 class PrivacyPolicyScreen extends StatelessWidget {
   const PrivacyPolicyScreen({super.key});
 
-  static const String _lastUpdated = 'March 31, 2026';
+  static const String _effectiveDate = '17/04/2026';
 
   static const List<_LegalSection> _sections = [
     _LegalSection(
-      title: '1. Information We Collect',
+      title: '1. Introduction',
       body:
-          'We may collect account details (name, email, phone), profile information, tax and finance records you enter, uploaded files (such as receipts or company logo), device and diagnostic information, and support messages.',
+          'Habesha Tax & Support Ltd (“we”, “our”, “us”) respects your privacy and is committed to protecting your personal data. This Privacy Policy explains how we collect, use, and safeguard your information when you use our mobile application and services.',
     ),
     _LegalSection(
-      title: '2. How We Use Information',
+      title: '2. Information We Collect',
       body:
-          'We use your information to create and manage your account, provide tax and financial features, generate summaries and reports, improve app stability, and respond to support requests.',
+          'a) Personal Information\nWe may collect:\n• Full name\n• Email address\n• Phone number\n• Address\n• National Insurance number (if required for tax services)\n• UTR (Unique Taxpayer Reference)\n• Identification documents (passport, BRP, etc.)\n\nb) Financial Information\n• Income details\n• Expense records\n• Payroll information\n• Tax-related documents\n\nc) Technical Data\n• Device type\n• IP address\n• App usage data\n• Login activity',
     ),
     _LegalSection(
-      title: '3. Legal Basis and Consent',
+      title: '3. How We Use Your Information',
       body:
-          'By creating an account and using the app, you consent to processing needed for service delivery. Where required by law, we request specific consent for optional processing.',
+          'We use your data to:\n• Provide tax, bookkeeping, and financial services\n• Prepare and submit tax returns\n• Communicate with you regarding your account\n• Improve our app and services\n• Comply with legal and regulatory obligations',
     ),
     _LegalSection(
-      title: '4. Data Sharing',
+      title: '4. Legal Basis for Processing',
       body:
-          'We do not sell your personal data. We may share data with hosting, analytics, security, and payment providers strictly to operate the service, and with authorities when legally required.',
+          'We process your data under:\n• Contractual obligation (providing services)\n• Legal obligation (HMRC compliance)\n• Legitimate interest (service improvement)\n• Consent (where required)',
     ),
     _LegalSection(
-      title: '5. Data Retention',
+      title: '5. Data Sharing',
       body:
-          'We retain data while your account is active and as necessary for legal, accounting, and fraud-prevention obligations. We delete or anonymize data when retention is no longer required.',
+          'We may share your data with:\n• HM Revenue & Customs (HMRC)\n• Software providers (e.g., accounting systems)\n• Payment processors\n• Legal authorities when required\n\nWe do not sell your personal data.',
     ),
     _LegalSection(
-      title: '6. Security',
+      title: '6. Data Security',
       body:
-          'We apply industry-standard safeguards such as encrypted transport, controlled access, and monitoring. No system is fully risk-free, but we continuously improve security controls.',
+          'We implement appropriate security measures including:\n• Encryption\n• Secure cloud storage\n• Access controls\nHowever, no system is 100% secure.',
     ),
     _LegalSection(
-      title: '7. Your Rights',
+      title: '7. Data Retention',
       body:
-          'Depending on your jurisdiction, you may request access, correction, deletion, export, or restriction of your personal data. You may also object to certain processing activities.',
+          'We retain your data for:\n• Up to 6 years (as required by UK tax law)\n• Longer if legally required',
     ),
     _LegalSection(
-      title: '8. Children\'s Privacy',
+      title: '8. Your Rights',
       body:
-          'This service is not intended for children under the age required by local law. We do not knowingly collect personal information from children without proper authorization.',
+          'Under UK GDPR, you have the right to:\n• Access your data\n• Correct inaccurate data\n• Request deletion\n• Restrict processing\n• Object to processing\n• Data portability\n\nTo exercise these rights, contact us at:\ninfo@habeshatax.co.uk',
     ),
     _LegalSection(
-      title: '9. International Transfers',
+      title: '9. Cookies and Tracking',
       body:
-          'If data is processed outside your country, we use reasonable safeguards and contractual protections to maintain privacy standards.',
+          'We may use cookies or similar technologies to improve app performance and user experience.',
     ),
     _LegalSection(
-      title: '10. Contact',
+      title: '10. Third-Party Services',
       body:
-          'For privacy requests or complaints, contact: privacy@habeshatax.com. You can also use the support channel in the app profile section.',
+          'Our app may integrate with third-party services (e.g., payment gateways, cloud storage). Their privacy policies apply.',
     ),
     _LegalSection(
-      title: '11. Account Deletion',
+      title: '11. Children’s Privacy',
       body:
-          'You can delete your account in-app from Profile > Delete Account. Deletion permanently removes access and may remove associated records subject to legal retention obligations.',
+          'Our services are not intended for children under 18. We do not knowingly collect data from minors.',
+    ),
+    _LegalSection(
+      title: '12. Changes to This Policy',
+      body:
+          'We may update this policy from time to time. Updates will be posted within the app.',
+    ),
+    _LegalSection(
+      title: '13. Contact Us',
+      body:
+          'Habesha Tax & Support Ltd\nEmail: info@habeshatax.co.uk\nAddress: Allied House 29-39 London Rd, Twickenham TW1 3SZ',
+    ),
+
+    _LegalSection(
+      title: "Account Deletion",
+      body:
+          "You may request account deletion by contacting us at info@habeshatax.co.uk. We will delete your data unless legally required to retain it.",
     ),
   ];
 
@@ -71,8 +87,8 @@ class PrivacyPolicyScreen extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         children: [
           _LegalHeader(
-            title: 'Habesha Tax Privacy Policy',
-            subtitle: 'Last updated: $_lastUpdated',
+            title: 'Habesha Tax & Support Ltd',
+            subtitle: 'Effective Date: $_effectiveDate',
           ),
           const SizedBox(height: 12),
           ..._sections.map(

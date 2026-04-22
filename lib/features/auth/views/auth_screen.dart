@@ -96,6 +96,8 @@ class _AuthScreenState extends State<AuthScreen> {
       if (response['success'] == true) {
         final data = response['data'];
 
+        if (!mounted) return;
+
         setState(() {
           _countries = List<String>.from(data['countries'] ?? []);
           _businessTypes = List<String>.from(data['business_types'] ?? []);
@@ -108,6 +110,7 @@ class _AuthScreenState extends State<AuthScreen> {
         throw Exception(response['message'] ?? 'Failed to load lookup data');
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _lookupError =
             'Some registration options could not be loaded. You can still continue. Error: ${e.toString()}';
@@ -126,6 +129,7 @@ class _AuthScreenState extends State<AuthScreen> {
         _selectedTaxCategory = 'VAT Registered';
       });
     } finally {
+      if (!mounted) return;
       setState(() => _loadingLookups = false);
     }
   }
@@ -142,6 +146,7 @@ class _AuthScreenState extends State<AuthScreen> {
         type: FileType.image,
         allowMultiple: false,
       );
+      if (!mounted) return;
       final path = result?.files.single.path;
       if (path == null || path.trim().isEmpty) return;
       setState(() => _companyLogoPath = path);

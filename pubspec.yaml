@@ -76,6 +76,7 @@ dependencies:
   shared_preferences: ^2.2.3
   socket_io_client: ^3.1.2
   flutter_secure_storage: ^9.0.0
+  flutter_dotenv: ^5.2.1
   
 
 
@@ -98,6 +99,7 @@ flutter:
 
   # To add assets to your application, add an assets section, like this:
   assets:
+    - assets/env/
     - assets/images/
   #   - images/a_dot_ham.jpeg
 

@@ -106,54 +106,75 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
       if (_currentUserId.isEmpty) {
         throw Exception('User not authenticated');
       }
-      // final response = await _client.get(
-      //   '/api/method/habesha_tax.habesha_tax.doctype.chat_message.chat_message.get_clients',
-      // );
+    
 
-      // final data = response['message'];
-
-      // if (data is List) {
-      //   clients = data.map((item) {
-      //     return {
-      //       "id": item["client"],
-      //       "name": item["client"],
-      //       "email": item["client"],
-      //       "avatar": null,
-      //     };
-      //   }).toList();
-      // }
-
-      final response = await _client.get(
-        '/api/resource/${FrappeConfig.userDoctype}',
+      final roleResponse = await _client.get(
+        '/api/resource/Has Role',
         queryParameters: {
-          'fields': jsonEncode([
-            FrappeConfig.userIdField,
-            FrappeConfig.userFirstNameField,
-            FrappeConfig.userLastNameField,
-            FrappeConfig.userEmailField,
-          ]),
+          'fields': jsonEncode(['parent']),
           'filters': jsonEncode([
-            ['enabled', '=', 1],
+            ['role', '=', 'System Manager'],
+            ['parenttype', '=', FrappeConfig.userDoctype],
           ]),
-          'limit_page_length': '200',
+          'limit_page_length': '500',
         },
       );
 
-      final data = response['data'];
-      if (data is List) {
-        clients = data
-            .map(
-              (item) => {
-                'id': item[FrappeConfig.userIdField]?.toString() ?? '',
-                'name':
-                    '${item[FrappeConfig.userFirstNameField] ?? ''} ${item[FrappeConfig.userLastNameField] ?? ''}'
-                        .trim(),
-                'email': item[FrappeConfig.userEmailField]?.toString() ?? '',
-                'avatar': null,
-              },
-            )
-            .where((client) => client['id'] != _currentUserId)
-            .toList();
+      final roleData = roleResponse['data'];
+      final allowedUserIds = <String>{};
+      if (roleData is List) {
+        for (final row in roleData) {
+          final map = Map<String, dynamic>.from(row as Map);
+          final userId = map['parent']?.toString().trim() ?? '';
+          if (userId.isEmpty) continue;
+          if (userId == 'Administrator' || userId == 'Guest') continue;
+          if (userId == _currentUserId) continue;
+          allowedUserIds.add(userId);
+        }
+      }
+
+      if (allowedUserIds.isEmpty) {
+        clients = [];
+      } else {
+        final response = await _client.get(
+          '/api/resource/${FrappeConfig.userDoctype}',
+          queryParameters: {
+            'fields': jsonEncode([
+              FrappeConfig.userIdField,
+              FrappeConfig.userFirstNameField,
+              FrappeConfig.userLastNameField,
+              FrappeConfig.userEmailField,
+            ]),
+            'filters': jsonEncode([
+              ['enabled', '=', 1],
+              [FrappeConfig.userIdField, 'in', allowedUserIds.toList()],
+            ]),
+            'limit_page_length': '200',
+          },
+        );
+
+        final data = response['data'];
+        if (data is List) {
+          clients = data
+              .map(
+                (item) => {
+                  'id': item[FrappeConfig.userIdField]?.toString() ?? '',
+                  'name':
+                      '${item[FrappeConfig.userFirstNameField] ?? ''} ${item[FrappeConfig.userLastNameField] ?? ''}'
+                          .trim(),
+                  'email': item[FrappeConfig.userEmailField]?.toString() ?? '',
+                  'avatar': null,
+                },
+              )
+              .where((client) {
+                final id = client['id']?.toString() ?? '';
+                return id.isNotEmpty &&
+                    id != _currentUserId &&
+                    id != 'Administrator' &&
+                    id != 'Guest';
+              })
+              .toList();
+        }
       }
 
       await _refreshUnreadCount();
@@ -231,18 +252,7 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
           "sender": _currentUserId,
         },
       );
-      // await _client.post(
-      //   '/api/resource/${FrappeConfig.chatMessageDoctype}',
-      //   body: {
-      //     'data': {
-      //       FrappeConfig.chatMessageSenderField: _currentUserId,
-      //       FrappeConfig.chatMessageReceiverField: selectedClientId,
-      //       FrappeConfig.chatMessageBodyField: payloadText,
-      //       FrappeConfig.chatMessageTimestampField: DateTime.now()
-      //           .toIso8601String(),
-      //     },
-      //   },
-      // );
+    
       await _loadMessages(selectedClientId, showLoader: false);
       await _refreshUnreadCount();
     } catch (e) {
@@ -279,27 +289,7 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
       });
     }
     try {
-      // final response = await _client.get(
-      //   '/api/method/habesha_tax.habesha_tax.doctype.chat_message.chat_message.get_messages',
-      //   queryParameters: {
-      //     "client": "misganmoges@gmail.com",
-      //     "user": _currentUserId,
-      //   },
-      // );
-
-      // final data = response['message'];
-
-      // if (data is List) {
-      //   chatHistories[clientId] = data.map((item) {
-      //     final sender = item['sender']?.toString() ?? '';
-
-      //     return {
-      //       'text': item['message'] ?? '',
-      //       'isSentByUser': sender == _currentUserId,
-      //       'timestamp':
-      //           DateTime.tryParse(item['timestamp'] ?? '') ?? DateTime.now(),
-      //     };
-      //   }).toList();
+    
       final response = await _client.get(
         '/api/resource/${FrappeConfig.chatMessageDoctype}',
         queryParameters: {
@@ -443,6 +433,11 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
 
   Future<void> _refreshUnreadCount() async {
     try {
+      final visibleClientIds = clients
+          .map((client) => client['id']?.toString() ?? '')
+          .where((id) => id.isNotEmpty)
+          .toSet();
+
       // Only fetch messages that are still unread on the server
       final unreadResponse = await _client.get(
         '/api/resource/${FrappeConfig.chatMessageDoctype}',
@@ -472,6 +467,7 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
             FrappeConfig.chatMessageSenderField,
             FrappeConfig.chatMessageReceiverField,
             FrappeConfig.chatMessageBodyField,
+            FrappeConfig.chatMessageCreationIsoField,
             FrappeConfig.chatMessageCreatedAtField,
             FrappeConfig.chatMessageTimestampField,
           ]),
@@ -510,7 +506,11 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
         final item = Map<String, dynamic>.from(row as Map);
         final sender =
             item[FrappeConfig.chatMessageSenderField]?.toString() ?? '';
-        if (sender.isEmpty || sender == _currentUserId) continue;
+        if (sender.isEmpty ||
+            sender == _currentUserId ||
+            !visibleClientIds.contains(sender)) {
+          continue;
+        }
         unread += 1;
         unreadBySender[sender] = (unreadBySender[sender] ?? 0) + 1;
       }

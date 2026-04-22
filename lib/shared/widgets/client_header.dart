@@ -14,18 +14,24 @@ class ClientAppBarTitle extends StatefulWidget {
 }
 
 class _ClientAppBarTitleState extends State<ClientAppBarTitle> {
-  static String? _cachedName;
-  static String? _cachedCode;
-  static Future<void>? _inflight;
+  static final Map<String, _ClientHeaderCache> _cacheByEmail = {};
+  static final Map<String, Future<void>> _inflightByEmail = {};
 
   bool _loading = false;
   String? _error;
   String? _clientName;
   String? _clientCode;
+  String _activeEmail = '';
 
   @override
   void initState() {
     super.initState();
+    _hydrate();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
     _hydrate();
   }
 
@@ -34,29 +40,53 @@ class _ClientAppBarTitleState extends State<ClientAppBarTitle> {
     final user = authState is Authenticated ? authState.user : null;
     final email = user?.email ?? '';
 
-    if (_cachedName != null || _cachedCode != null) {
+    if (_activeEmail == email) return;
+    _activeEmail = email;
+
+    if (email.isEmpty) {
+      if (!mounted) return;
       setState(() {
-        _clientName = _cachedName;
-        _clientCode = _cachedCode;
+        _loading = false;
+        _error = null;
+        _clientName = 'Client';
+        _clientCode = '';
       });
       return;
     }
 
+    final cached = _cacheByEmail[email];
+    if (cached != null) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = null;
+        _clientName = cached.name;
+        _clientCode = cached.code;
+      });
+      return;
+    }
+
+    if (!mounted) return;
     setState(() {
       _loading = true;
       _error = null;
+      _clientName = null;
+      _clientCode = null;
     });
 
-    _inflight ??= _loadClient(email);
+    _inflightByEmail[email] ??= _loadClient(email);
     try {
-      await _inflight;
+      await _inflightByEmail[email];
+    } catch (e) {
+      _error = e.toString();
     } finally {
-      _inflight = null;
-      if (mounted) {
+      _inflightByEmail.remove(email);
+      if (mounted && _activeEmail == email) {
+        final latest = _cacheByEmail[email];
         setState(() {
           _loading = false;
-          _clientName = _cachedName;
-          _clientCode = _cachedCode;
+          _clientName = latest?.name ?? 'Client';
+          _clientCode = latest?.code ?? '';
         });
       }
     }
@@ -76,56 +106,79 @@ class _ClientAppBarTitleState extends State<ClientAppBarTitle> {
       final data = response['data'] ?? response['message'];
       if (data is List && data.isNotEmpty) {
         final first = Map<String, dynamic>.from(data.first as Map);
-        _cachedName = first['full_name'] as String? ?? 'Client';
-        _cachedCode = first['client_code'] as String? ?? '';
+        _cacheByEmail[email] = _ClientHeaderCache(
+          name: first['full_name'] as String? ?? 'Client',
+          code: first['client_code'] as String? ?? '',
+        );
       } else {
         throw Exception('Client record not found');
       }
-    } catch (e) {
-      _error = e.toString();
-      _cachedName ??= 'Client';
-      _cachedCode ??= '';
+    } catch (_) {
+      _cacheByEmail[email] ??= const _ClientHeaderCache(
+        name: 'Client',
+        code: '',
+      );
+      rethrow;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
-      return const Text(
-        'Loading client...',
-        style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-      );
-    }
+    return BlocListener<AuthBloc, AuthState>(
+      listenWhen: (previous, current) {
+        final previousEmail = previous is Authenticated
+            ? previous.user.email
+            : '';
+        final currentEmail = current is Authenticated ? current.user.email : '';
+        return previousEmail != currentEmail;
+      },
+      listener: (_, __) => _hydrate(),
+      child: () {
+        if (_loading) {
+          return const Text(
+            'Loading client...',
+            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+          );
+        }
 
-    if (_error != null && (_clientName == null || _clientName!.isEmpty)) {
-      return const Text(
-        'Client',
-        style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-      );
-    }
+        if (_error != null && (_clientName == null || _clientName!.isEmpty)) {
+          return const Text(
+            'Client',
+            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+          );
+        }
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          _clientName ?? 'Client',
-          style: const TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        if ((_clientCode ?? '').isNotEmpty)
-          Text(
-            'Client Code: $_clientCode',
-            style: const TextStyle(
-              color: Colors.black54,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _clientName ?? 'Client',
+              style: const TextStyle(
+                color: Colors.black,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          ),
-      ],
+            if ((_clientCode ?? '').isNotEmpty)
+              Text(
+                'Client Code: $_clientCode',
+                style: const TextStyle(
+                  color: Colors.black54,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+          ],
+        );
+      }(),
     );
   }
+}
+
+class _ClientHeaderCache {
+  const _ClientHeaderCache({required this.name, required this.code});
+
+  final String name;
+  final String code;
 }
 
 class ClientProfileLeading extends StatelessWidget {

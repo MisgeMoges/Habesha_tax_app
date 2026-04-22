@@ -33,7 +33,9 @@ class InvoiceServiceLineForm {
     return double.tryParse(match.group(1) ?? '') ?? 0;
   }
 
-  double get total => timeValue * rate;
+  double get billingUnits => timeValue > 0 ? timeValue : quantity;
+
+  double get total => billingUnits * rate;
 
   Map<String, dynamic> toPayload() {
     return {
@@ -41,7 +43,7 @@ class InvoiceServiceLineForm {
       FrappeConfig.clientInvoiceServiceDescriptionField: descriptionController
           .text
           .trim(),
-      FrappeConfig.clientInvoiceServiceQuantityField: quantity,
+      FrappeConfig.clientInvoiceServiceQuantityField: billingUnits,
       FrappeConfig.clientInvoiceServiceRateField: rate,
       FrappeConfig.clientInvoiceServiceTimeField: timeController.text.trim(),
       FrappeConfig.clientInvoiceServiceTotalAmountField: total,
@@ -293,20 +295,27 @@ class ServiceLine {
       return double.tryParse(match.group(1) ?? '') ?? 0;
     }
 
+    final quantity = toDouble(
+      data[FrappeConfig.clientInvoiceServiceQuantityField],
+    );
     final rate = toDouble(data[FrappeConfig.clientInvoiceServiceRateField]);
     final timeRaw =
         data[FrappeConfig.clientInvoiceServiceTimeField]?.toString() ?? '';
     final timeValue = parseTimeValue(timeRaw);
+    final computedTotal = rate * (timeValue > 0 ? timeValue : quantity);
+    final rawTotal = data[FrappeConfig.clientInvoiceServiceTotalAmountField];
+    final hasExplicitTotal = rawTotal != null && rawTotal.toString().isNotEmpty;
+    final totalAmount = hasExplicitTotal ? toDouble(rawTotal) : computedTotal;
 
     return ServiceLine(
       item: data[FrappeConfig.clientInvoiceServiceItemField]?.toString() ?? '',
       description:
           data[FrappeConfig.clientInvoiceServiceDescriptionField]?.toString() ??
           '',
-      quantity: toDouble(data[FrappeConfig.clientInvoiceServiceQuantityField]),
+      quantity: quantity,
       rate: rate,
       time: timeRaw,
-      totalAmount: rate * timeValue,
+      totalAmount: totalAmount,
     );
   }
 }

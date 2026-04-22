@@ -1,23 +1,18 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 class FrappeConfig {
   const FrappeConfig._();
 
-  static const String baseUrl = String.fromEnvironment(
-    'FRAPPE_BASE_URL',
-    defaultValue: 'http://192.168.0.182:8000',
-    // defaultValue: 'http://207.180.214.194:8080',
-  );
+  static String get baseUrl => _readEnv('FRAPPE_BASE_URL');
 
-  static const String apiKey = String.fromEnvironment(
-    'FRAPPE_API_KEY',
-    defaultValue: 'c3637bac574b748',
-    // defaultValue: '088cd0a15dd8861',
-  );
+  static String get apiKey => _readEnv('FRAPPE_API_KEY');
 
-  static const String apiSecret = String.fromEnvironment(
-    'FRAPPE_API_SECRET',
-    defaultValue: '183429d6ef3227b',
-    // defaultValue: '8fa8ef56cd36587',
-  );
+  static String get apiSecret => _readEnv('FRAPPE_API_SECRET');
+
+  static String _readEnv(String key) {
+    final value = dotenv.maybeGet(key)?.trim();
+    return (value == null || value.isEmpty) ? '' : value;
+  }
 
   static bool get useTokenAuth => apiKey.isNotEmpty && apiSecret.isNotEmpty;
 

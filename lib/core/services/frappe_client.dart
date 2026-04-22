@@ -101,7 +101,7 @@ class FrappeClient {
     headers.remove(HttpHeaders.contentTypeHeader);
     request.headers.addAll(headers);
 
-    request.fields['is_private'] = isPrivate ? '0' : '0';
+    request.fields['is_private'] = isPrivate ? '1' : '0';
     if (doctype != null) request.fields['doctype'] = doctype;
     if (docname != null) request.fields['docname'] = docname;
     if (fieldname != null) request.fields['fieldname'] = fieldname;
@@ -190,27 +190,10 @@ class FrappeClient {
         );
       }
     } catch (_) {
-      // Ignore secure storage errors to avoid blocking auth flow.
+      
     }
   }
 
-  // Map<String, String> _headers({bool useTokenAuth = true}) {
-  //   final headers = <String, String>{
-  //     HttpHeaders.contentTypeHeader: 'application/json',
-  //     HttpHeaders.acceptHeader: 'application/json',
-  //   };
-
-  //   if (useTokenAuth && FrappeConfig.useTokenAuth) {
-  //     headers[HttpHeaders.authorizationHeader] =
-  //         'token ${FrappeConfig.apiKey}:${FrappeConfig.apiSecret}';
-  //   }
-
-  //   if (_sessionCookie != null && _sessionCookie!.isNotEmpty) {
-  //     headers[HttpHeaders.cookieHeader] = _sessionCookie!;
-  //   }
-
-  //   return headers;
-  // }
 
   String? _extractSessionCookie(http.Response response) {
     final setCookie = response.headers['set-cookie'];
@@ -234,14 +217,6 @@ class FrappeClient {
     throw Exception('Frappe request failed: ${response.statusCode} - $body');
   }
 
-  //   Map<String, dynamic> _decode(String body) {
-  //     final decoded = jsonDecode(body);
-  //     if (decoded is Map<String, dynamic>) {
-  //       return decoded;
-  //     }
-  //     return <String, dynamic>{'message': decoded};
-  //   }
-
   Map<String, dynamic> _decode(String body) {
     try {
       final decoded = jsonDecode(body);
@@ -260,7 +235,7 @@ class FrappeClient {
 
             return jsonDecode(jsonStr);
           } catch (e) {
-            // If parsing fails, keep original message shape.
+           
             return {'message': message};
           }
         } else if (message is Map) {
@@ -279,8 +254,7 @@ class FrappeClient {
 
       return <String, dynamic>{'data': decoded};
     } catch (e) {
-      // If JSON decode fails entirely, return empty map
-      print('JSON decode error: $e, body: $body');
+ 
       return <String, dynamic>{};
     }
   }

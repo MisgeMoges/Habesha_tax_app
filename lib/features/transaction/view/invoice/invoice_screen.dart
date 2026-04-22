@@ -323,10 +323,11 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
         _showSnack('Service item is required.');
         return false;
       }
-      final qty = double.tryParse(line.quantityController.text.trim()) ?? -1;
+      final qty = double.tryParse(line.quantityController.text.trim()) ?? 0;
+      final time = line.timeValue;
       final rate = double.tryParse(line.rateController.text.trim()) ?? -1;
-      if (qty <= 0) {
-        _showSnack('Quantity must be greater than 0.');
+      if (qty <= 0 && time <= 0) {
+        _showSnack('Quantity or time must be greater than 0.');
         return false;
       }
       if (rate < 0) {

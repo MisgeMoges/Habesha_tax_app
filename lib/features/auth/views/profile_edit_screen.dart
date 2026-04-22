@@ -72,8 +72,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
       final authState = context.read<AuthBloc>().state;
       final user = authState is Authenticated ? authState.user : null;
       final email = user?.email ?? '';
-      print('Loading profile for user email: $email');
-
+  
       final response = await _client.get(
         '/api/resource/${FrappeConfig.clientDoctype}',
         queryParameters: {

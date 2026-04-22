@@ -155,17 +155,13 @@ class _NotificationScreenState extends State<NotificationScreen> {
       }
       await NotificationCenter.refreshUnreadCount(userEmail: userEmail);
 
-      // Connect to realtime service to receive notifications live
       try {
         _realtime.connect(userEmail: userEmail);
         _realtime.events.listen((data) {
-          // Attempt to interpret incoming event as a notification
           final Map<String, dynamic> payload = Map<String, dynamic>.from(data);
           if (payload.containsKey('title') ||
               payload.containsKey('message') ||
               payload['type'] == 'notification') {
-            // For realtime notifications, record arrival time for display
-            // and preserve server timestamp (if present) separately.
             DateTime? serverTs;
             final tsCandidates = [
               payload['timestamp'],
@@ -193,9 +189,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   payload['message']?.toString() ??
                   payload['body']?.toString() ??
                   '',
-              // display arrival time for realtime notifications
+
               'timestamp': arrival,
-              // keep server timestamp for reference if available
+
               'server_timestamp': serverTs,
               'read': 0,
               'type': payload['type']?.toString(),
@@ -236,6 +232,17 @@ class _NotificationScreenState extends State<NotificationScreen> {
     final yesterdayNotifications = _filterByDate(
       now.subtract(const Duration(days: 1)),
     );
+    final earlierNotifications = _notifications.where((item) {
+      final ts = item['timestamp'] as DateTime;
+      final isToday =
+          ts.year == now.year && ts.month == now.month && ts.day == now.day;
+      final yesterday = now.subtract(const Duration(days: 1));
+      final isYesterday =
+          ts.year == yesterday.year &&
+          ts.month == yesterday.month &&
+          ts.day == yesterday.day;
+      return !isToday && !isYesterday;
+    }).toList();
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -253,18 +260,31 @@ class _NotificationScreenState extends State<NotificationScreen> {
           ? const Center(child: CircularProgressIndicator())
           : _errorMessage != null
           ? Center(child: Text(_errorMessage!))
+          : _notifications.isEmpty
+          ? const Center(child: Text('No notifications yet.'))
           : ListView(
               padding: const EdgeInsets.all(20),
               children: [
-                const SectionTitle(title: 'Today'),
-                ...todayNotifications.map(
-                  (item) => NotificationItem(item: item),
-                ),
-                const SizedBox(height: 20),
-                const SectionTitle(title: 'Yesterday'),
-                ...yesterdayNotifications.map(
-                  (item) => NotificationItem(item: item),
-                ),
+                if (todayNotifications.isNotEmpty) ...[
+                  const SectionTitle(title: 'Today'),
+                  ...todayNotifications.map(
+                    (item) => NotificationItem(item: item),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+                if (yesterdayNotifications.isNotEmpty) ...[
+                  const SectionTitle(title: 'Yesterday'),
+                  ...yesterdayNotifications.map(
+                    (item) => NotificationItem(item: item),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+                if (earlierNotifications.isNotEmpty) ...[
+                  const SectionTitle(title: 'Earlier'),
+                  ...earlierNotifications.map(
+                    (item) => NotificationItem(item: item),
+                  ),
+                ],
               ],
             ),
     );
