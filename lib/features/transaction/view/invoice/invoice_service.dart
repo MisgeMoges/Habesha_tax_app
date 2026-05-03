@@ -263,7 +263,6 @@ class InvoiceService {
 
     final response = await http.get(url, headers: headers);
     if (response.statusCode != 200) {
-      print('Download issue: ${response.statusCode}, ${response.body}');
       throw Exception('Download failed with status ${response.statusCode}');
     }
 

@@ -205,7 +205,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       '/api/method/${FrappeConfig.registerClientUserMethod}',
       body: {'user_data': userPayload, 'client_data': clientPayload},
     );
-    print('Registration response: $response');
+   
     final message = response['message'];
     if (message is Map<String, dynamic> && message['success'] == false) {
       throw Exception(message['message']?.toString() ?? 'Registration failed');

@@ -449,10 +449,10 @@ class _ClientEmployeeManagementScreenState
     );
 
     if (result != true) {
-      // Schedule disposal after the current microtask to avoid disposing
-      // controllers while the dialog/pop is still finalizing which can
-      // cause "wrong build scope" assertions.
-      Future.microtask(() {
+      // Dispose controllers after the current frame to avoid disposing
+      // while the dialog/pop transition is still finalizing which can
+      // cause "used after dispose" or "wrong build scope" assertions.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
         try {
           postingDateController.dispose();
         } catch (_) {}
@@ -471,8 +471,9 @@ class _ClientEmployeeManagementScreenState
       hourlyRate: hourlyRate,
     );
 
-    // Dispose controllers after a microtask to avoid race with dialog
-    Future.microtask(() {
+    // Dispose controllers after the current frame to avoid a race with
+    // the dialog's teardown and prevent "used after dispose" errors.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       try {
         postingDateController.dispose();
       } catch (_) {}
@@ -506,7 +507,6 @@ class _ClientEmployeeManagementScreenState
         'position': employeeData[FrappeConfig.clientEmployeePositionField],
       };
 
-    
       final response = await _client.post(
         'api/method/habesha_tax.habesha_tax.doctype.client_employee.client_employee.post_employee_payroll', // Adjust this path to match your app's actual path
         body: {
@@ -515,7 +515,6 @@ class _ClientEmployeeManagementScreenState
           ), // Send as JSON string as expected by the backend
         },
       );
-
 
       // Reload the payroll entries after successful save
       await _loadPayrollEntries(employeeId);

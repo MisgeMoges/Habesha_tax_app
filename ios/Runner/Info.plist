@@ -29,7 +29,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>This app uses the camera to capture attachment photos for transactions.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-    <string>This app allows selecting documents from your gallery.</string>
+	<string>This app allows selecting documents from your gallery.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

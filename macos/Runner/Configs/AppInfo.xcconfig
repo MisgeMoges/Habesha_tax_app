@@ -8,7 +8,8 @@
 PRODUCT_NAME = habesha_tax_app
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.example.habeshaTaxApp
+// PRODUCT_BUNDLE_IDENTIFIER = com.example.habeshaTaxApp
+PRODUCT_BUNDLE_IDENTIFIER = co.uk.habeshatax.mobile
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2025 com.example. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2026 habeshatax.co.uk. All rights reserved.

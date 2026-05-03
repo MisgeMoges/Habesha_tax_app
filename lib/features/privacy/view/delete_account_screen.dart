@@ -197,7 +197,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'If automated deletion fails, contact support at privacy@habeshatax.com.',
+            'If automated deletion fails, contact support at info@habeshatax.co.uk.',
             style: TextStyle(color: Colors.black54),
           ),
         ],
