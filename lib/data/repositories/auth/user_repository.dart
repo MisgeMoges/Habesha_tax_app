@@ -13,7 +13,7 @@ abstract class AuthRepository {
     String password,
     String firstName,
     String lastName,
-    String mobileNumber,
+    String? mobileNumber,
     String businessType,
     String businessStatus,
     String tinNumber,
@@ -45,6 +45,6 @@ abstract class AuthRepository {
   Future<void> updateProfile({
     required String firstName,
     required String lastName,
-    required String mobileNumber,
+    String? mobileNumber,
   });
 }

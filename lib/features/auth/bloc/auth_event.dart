@@ -29,7 +29,7 @@ class SignUpRequested extends AuthEvent {
   final String password;
   final String firstName;
   final String lastName;
-  final String mobileNumber;
+  final String? mobileNumber;
   final String businessType;
   final String businessStatus;
   final String tinNumber;
@@ -126,7 +126,7 @@ class UpdatePasswordRequested extends AuthEvent {
 class UpdateProfileRequested extends AuthEvent {
   final String firstName;
   final String lastName;
-  final String mobileNumber;
+  final String? mobileNumber;
 
   const UpdateProfileRequested({
     required this.firstName,

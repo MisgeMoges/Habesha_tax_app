@@ -239,8 +239,6 @@ class _AuthScreenState extends State<AuthScreen> {
       } else if (_emailController.text.trim().isEmpty ||
           !_emailController.text.contains('@')) {
         message = 'Please enter a valid email';
-      } else if (_mobileController.text.trim().isEmpty) {
-        message = 'Please enter your mobile number';
       } else if (_passwordController.text.isEmpty) {
         message = 'Please enter your password';
       } else if (_passwordController.text.length < 8) {
@@ -617,7 +615,7 @@ class _AuthScreenState extends State<AuthScreen> {
                               TextFormField(
                                 controller: _mobileController,
                                 decoration: const InputDecoration(
-                                  labelText: 'Mobile Number *',
+                                  labelText: 'Mobile Number (Optional)',
                                   border: OutlineInputBorder(),
                                 ),
                                 keyboardType: TextInputType.phone,

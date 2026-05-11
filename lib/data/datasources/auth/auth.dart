@@ -12,7 +12,7 @@ abstract class AuthRemoteDataSource {
     String password,
     String firstName,
     String lastName,
-    String mobileNumber,
+    String? mobileNumber,
     String businessType,
     String businessStatus,
     String tinNumber,
@@ -41,7 +41,7 @@ abstract class AuthRemoteDataSource {
   Future<void> updateProfile({
     required String firstName,
     required String lastName,
-    required String mobileNumber,
+    String? mobileNumber,
   });
 }
 
@@ -121,7 +121,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     String password,
     String firstName,
     String lastName,
-    String mobileNumber,
+    String? mobileNumber,
     String businessType,
     String businessStatus,
     String tinNumber,
@@ -162,13 +162,17 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       'last_name': lastName,
       'full_name': fullName,
       'username': inferredUsername,
-      'mobile_no': mobileNumber,
-      'phone_number': mobileNumber,
       'language': 'en',
       'time_zone': 'UTC',
       'country': country,
       'password': password,
     };
+
+    if (mobileNumber != null && mobileNumber.trim().isNotEmpty) {
+      final m = mobileNumber.trim();
+      userPayload['mobile_no'] = m;
+      userPayload['phone_number'] = m;
+    }
 
     String companyLogoUrl = '';
     if (companyLogoPath != null && companyLogoPath.trim().isNotEmpty) {
@@ -205,7 +209,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       '/api/method/${FrappeConfig.registerClientUserMethod}',
       body: {'user_data': userPayload, 'client_data': clientPayload},
     );
-   
+
     final message = response['message'];
     if (message is Map<String, dynamic> && message['success'] == false) {
       throw Exception(message['message']?.toString() ?? 'Registration failed');
@@ -281,7 +285,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   Future<void> updateProfile({
     required String firstName,
     required String lastName,
-    required String mobileNumber,
+    String? mobileNumber,
   }) async {
     final user = _cachedUser ?? await _getCurrentUser();
     if (user == null) throw Exception('No signed-in user');
@@ -289,8 +293,11 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     final updateData = <String, dynamic>{
       FrappeConfig.userFirstNameField: firstName,
       FrappeConfig.userLastNameField: lastName,
-      FrappeConfig.userMobileNoField: mobileNumber,
     };
+
+    if (mobileNumber != null && mobileNumber.trim().isNotEmpty) {
+      updateData[FrappeConfig.userMobileNoField] = mobileNumber.trim();
+    }
 
     await _client.put(
       '/api/resource/${FrappeConfig.userDoctype}/${user.id}',
